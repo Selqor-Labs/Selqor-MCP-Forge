@@ -45,12 +45,12 @@ def test_equals_op_pass_and_fail():
 
 def test_contains_on_string_and_list():
     result = {"items": ["alpha", "beta"], "blurb": "hello world"}
-    s = evaluate_assertion({"op": "contains", "path": "blurb", "value": "world"},
-                           result=result, status="success", latency_ms=1)
-    assert s["passed"] is True
-    l = evaluate_assertion({"op": "contains", "path": "items", "value": "beta"},
-                           result=result, status="success", latency_ms=1)
-    assert l["passed"] is True
+    string_case = evaluate_assertion({"op": "contains", "path": "blurb", "value": "world"},
+                                     result=result, status="success", latency_ms=1)
+    assert string_case["passed"] is True
+    list_case = evaluate_assertion({"op": "contains", "path": "items", "value": "beta"},
+                                   result=result, status="success", latency_ms=1)
+    assert list_case["passed"] is True
 
 
 def test_exists_and_not_exists():
