@@ -1,0 +1,52 @@
+# Rust
+/target
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+/dist/
+build/
+.venv/
+*.egg
+.pytest_cache/
+
+# Project
+/selqor-forge-output
+/benchmarks/results
+/dashboard
+/frontend/
+/.tmp/
+/.tmp-tests/
+/.tmp-pytest/
+/.tmp-pytest-eval/
+.DS_Store
+.env
+*.log
+*.forge-secret.key
+
+# AI/LLM coding tools
+.claude/
+.cursor/
+.windsurf/
+.aider*
+.codeium/
+.continue/
+.tabnine/
+.sourcegraph/
+.cody/
+.copilot/
+.github/copilot/
+
+# Local state
+.selqor-state/
+
+# Node
+node_modules/
+.vite/
+npm-debug.log
+yarn-error.log
+src/dashboard/frontend/dist/
+src/dashboard/frontend/node_modules/
+src/dashboard/frontend/.vite/

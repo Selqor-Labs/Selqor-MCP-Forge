@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a product improvement or new capability
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      placeholder: It is hard to...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+      placeholder: I would like Selqor Forge to...
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: I tried...
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      placeholder: Benchmarks, screenshots, API specs, or workflows that make this request easier to evaluate.

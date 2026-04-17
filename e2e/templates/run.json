@@ -1,0 +1,26 @@
+{
+  "case_id": "",
+  "started_at": "",
+  "completed_at": "",
+  "git_branch": "",
+  "git_commit": "",
+  "dirty_worktree": null,
+  "llm_config_id": "",
+  "llm_provider": "",
+  "llm_model": "",
+  "forge_command": "",
+  "status": "not_started",
+  "artifacts": {
+    "analysis_plan": "",
+    "tool_plan": "",
+    "quality_report": "",
+    "generated_server": ""
+  },
+  "validation": {
+    "server_build": "not_run",
+    "real_api_calls": "not_run",
+    "cleanup": "not_run"
+  },
+  "notes": ""
+}
+

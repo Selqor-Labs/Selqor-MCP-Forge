@@ -1,0 +1,11 @@
+{
+  "score": 65,
+  "compression_ratio": 1.0,
+  "coverage": 1.0,
+  "description_clarity": 1.0,
+  "schema_completeness": 1.0,
+  "warnings": [
+    "Baseline mirrors one endpoint per tool.",
+    "Tool compression ratio is outside the target range (0.2 to 0.4)"
+  ]
+}

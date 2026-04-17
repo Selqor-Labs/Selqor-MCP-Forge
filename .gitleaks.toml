@@ -1,0 +1,15 @@
+# Gitleaks configuration — allowlist for historical false positives.
+# These findings exist in old commits and have already been remediated
+# in the current codebase.
+
+[allowlist]
+  description = "Historical false positives (already remediated)"
+
+  # server.log contained a Twilio integration ID (not a secret) — file
+  # was removed in a subsequent commit and is now gitignored.
+  # .env.example once contained example Postgres credentials — replaced
+  # with empty placeholders in current version.
+  commits = [
+    "23df226bf40b4d6f0dc188189ab388c8b91d8c81",
+    "9b2dcd7489b928da8f352eb837193bf7e4d3514e",
+  ]

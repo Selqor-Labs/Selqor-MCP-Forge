@@ -1,0 +1,13 @@
+{
+  "integration": "Petstore",
+  "spec": "https://petstore.swagger.io/v2/swagger.json",
+  "endpoints": 20,
+  "curated_tools": 6,
+  "baseline_tools": 20,
+  "curated_score": 100,
+  "baseline_score": 65,
+  "curated_compression_ratio": 0.25,
+  "baseline_compression_ratio": 1.0,
+  "coverage": 1.0,
+  "score_delta": 35
+}

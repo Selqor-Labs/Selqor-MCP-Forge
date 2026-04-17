@@ -1,0 +1,50 @@
+{
+  "source": "heuristic",
+  "model": null,
+  "tools": [
+    {
+      "name": "pet_operations",
+      "description": "Manage Pet operations to create and submit resources.",
+      "covered_endpoints": [
+        "uploadfile",
+        "addpet",
+        "updatepet",
+        "findpetsbystatus",
+        "findpetsbytags",
+        "getpetbyid",
+        "updatepetwithform",
+        "deletepet"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "name": "store_operations",
+      "description": "Manage Store operations to list and fetch resources.",
+      "covered_endpoints": [
+        "getinventory",
+        "placeorder",
+        "getorderbyid",
+        "deleteorder"
+      ],
+      "confidence": 0.72
+    },
+    {
+      "name": "user_operations",
+      "description": "Manage User operations to create and submit resources.",
+      "covered_endpoints": [
+        "createuserswithlistinput",
+        "getuserbyname",
+        "updateuser",
+        "deleteuser",
+        "loginuser",
+        "logoutuser",
+        "createuserswitharrayinput",
+        "createuser"
+      ],
+      "confidence": 0.72
+    }
+  ],
+  "warnings": [
+    "ANTHROPIC_API_KEY was not found; using heuristic analysis instead."
+  ]
+}

@@ -1,0 +1,2662 @@
+{
+  "tools": [
+    {
+      "name": "uploadfile_tool",
+      "description": "Execute POST /pet/{petId}/uploadImage directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "uploadfile"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "uploadfile"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "petId": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "petId"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "addpet_tool",
+      "description": "Execute POST /pet directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "addpet"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "addpet"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "updatepet_tool",
+      "description": "Execute PUT /pet directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "updatepet"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "updatepet"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "findpetsbystatus_tool",
+      "description": "Execute GET /pet/findByStatus directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "findpetsbystatus"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "findpetsbystatus"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "array"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "status"
+            ]
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "findpetsbytags_tool",
+      "description": "Execute GET /pet/findByTags directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "findpetsbytags"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "findpetsbytags"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "tags": {
+                "type": "array"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "tags"
+            ]
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "getpetbyid_tool",
+      "description": "Execute GET /pet/{petId} directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "getpetbyid"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "getpetbyid"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "petId": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "petId"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "updatepetwithform_tool",
+      "description": "Execute POST /pet/{petId} directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "updatepetwithform"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "updatepetwithform"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "petId": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "petId"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "deletepet_tool",
+      "description": "Execute DELETE /pet/{petId} directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "deletepet"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "deletepet"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "petId": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "petId"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "getinventory_tool",
+      "description": "Execute GET /store/inventory directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "getinventory"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "getinventory"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "placeorder_tool",
+      "description": "Execute POST /store/order directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "placeorder"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "placeorder"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "getorderbyid_tool",
+      "description": "Execute GET /store/order/{orderId} directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "getorderbyid"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "getorderbyid"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "orderId": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "orderId"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "deleteorder_tool",
+      "description": "Execute DELETE /store/order/{orderId} directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "deleteorder"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "deleteorder"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "orderId": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "orderId"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "createuserswithlistinput_tool",
+      "description": "Execute POST /user/createWithList directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "createuserswithlistinput"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "createuserswithlistinput"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "getuserbyname_tool",
+      "description": "Execute GET /user/{username} directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "getuserbyname"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "getuserbyname"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "username": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "username"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "updateuser_tool",
+      "description": "Execute PUT /user/{username} directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "updateuser"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "updateuser"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "username": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "username"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "deleteuser_tool",
+      "description": "Execute DELETE /user/{username} directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "deleteuser"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "deleteuser"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {
+              "username": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "username"
+            ]
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "loginuser_tool",
+      "description": "Execute GET /user/login directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "loginuser"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "loginuser"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "username": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": true,
+            "required": [
+              "username",
+              "password"
+            ]
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "logoutuser_tool",
+      "description": "Execute GET /user/logout directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "logoutuser"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "logoutuser"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "createuserswitharrayinput_tool",
+      "description": "Execute POST /user/createWithArray directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "createuserswitharrayinput"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "createuserswitharrayinput"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    },
+    {
+      "name": "createuser_tool",
+      "description": "Execute POST /user directly as an endpoint mirror.",
+      "covered_endpoints": [
+        "createuser"
+      ],
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "createuser"
+            ],
+            "description": "Operation id to execute"
+          },
+          "path_params": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "query": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "body": {
+            "type": [
+              "object",
+              "array",
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "operation"
+        ]
+      },
+      "confidence": 0.45
+    }
+  ],
+  "endpoint_catalog": {
+    "uploadfile": {
+      "id": "uploadfile",
+      "method": "post",
+      "path": "/pet/{petId}/uploadImage",
+      "summary": "uploads an image",
+      "description": "uploads an image",
+      "domain": "pet",
+      "intent": "create",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "petId",
+          "location": "path",
+          "required": true,
+          "description": "ID of pet to update",
+          "schema_": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "additionalMetadata",
+          "location": "formData",
+          "required": false,
+          "description": "Additional data to pass to server",
+          "schema_": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "file",
+          "location": "formData",
+          "required": false,
+          "description": "file to upload",
+          "schema_": {
+            "type": "file"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "type": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    "addpet": {
+      "id": "addpet",
+      "method": "post",
+      "path": "/pet",
+      "summary": "Add a new pet to the store",
+      "description": "Add a new pet to the store",
+      "domain": "pet",
+      "intent": "create",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "body",
+          "location": "body",
+          "required": true,
+          "description": "Pet object that needs to be added to the store",
+          "schema_": {
+            "type": "object",
+            "required": [
+              "name",
+              "photoUrls"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "category": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "xml": {
+                  "name": "Category"
+                }
+              },
+              "name": {
+                "type": "string",
+                "example": "doggie"
+              },
+              "photoUrls": {
+                "type": "array",
+                "xml": {
+                  "wrapped": true
+                },
+                "items": {
+                  "type": "string",
+                  "xml": {
+                    "name": "photoUrl"
+                  }
+                }
+              },
+              "tags": {
+                "type": "array",
+                "xml": {
+                  "wrapped": true
+                },
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "xml": {
+                    "name": "tag"
+                  }
+                }
+              },
+              "status": {
+                "type": "string",
+                "description": "pet status in the store",
+                "enum": [
+                  "available",
+                  "pending",
+                  "sold"
+                ]
+              }
+            },
+            "xml": {
+              "name": "Pet"
+            }
+          }
+        }
+      ],
+      "request_body_schema": {
+        "type": "object",
+        "required": [
+          "name",
+          "photoUrls"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "xml": {
+              "name": "Category"
+            }
+          },
+          "name": {
+            "type": "string",
+            "example": "doggie"
+          },
+          "photoUrls": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "photoUrl"
+              }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "xml": {
+                "name": "tag"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "pet status in the store",
+            "enum": [
+              "available",
+              "pending",
+              "sold"
+            ]
+          }
+        },
+        "xml": {
+          "name": "Pet"
+        }
+      },
+      "response_schema": null,
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    "updatepet": {
+      "id": "updatepet",
+      "method": "put",
+      "path": "/pet",
+      "summary": "Update an existing pet",
+      "description": "Update an existing pet",
+      "domain": "pet",
+      "intent": "update",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "body",
+          "location": "body",
+          "required": true,
+          "description": "Pet object that needs to be added to the store",
+          "schema_": {
+            "type": "object",
+            "required": [
+              "name",
+              "photoUrls"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "category": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "xml": {
+                  "name": "Category"
+                }
+              },
+              "name": {
+                "type": "string",
+                "example": "doggie"
+              },
+              "photoUrls": {
+                "type": "array",
+                "xml": {
+                  "wrapped": true
+                },
+                "items": {
+                  "type": "string",
+                  "xml": {
+                    "name": "photoUrl"
+                  }
+                }
+              },
+              "tags": {
+                "type": "array",
+                "xml": {
+                  "wrapped": true
+                },
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "format": "int64"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "xml": {
+                    "name": "tag"
+                  }
+                }
+              },
+              "status": {
+                "type": "string",
+                "description": "pet status in the store",
+                "enum": [
+                  "available",
+                  "pending",
+                  "sold"
+                ]
+              }
+            },
+            "xml": {
+              "name": "Pet"
+            }
+          }
+        }
+      ],
+      "request_body_schema": {
+        "type": "object",
+        "required": [
+          "name",
+          "photoUrls"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "xml": {
+              "name": "Category"
+            }
+          },
+          "name": {
+            "type": "string",
+            "example": "doggie"
+          },
+          "photoUrls": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "photoUrl"
+              }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "xml": {
+                "name": "tag"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "pet status in the store",
+            "enum": [
+              "available",
+              "pending",
+              "sold"
+            ]
+          }
+        },
+        "xml": {
+          "name": "Pet"
+        }
+      },
+      "response_schema": null,
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    "findpetsbystatus": {
+      "id": "findpetsbystatus",
+      "method": "get",
+      "path": "/pet/findByStatus",
+      "summary": "Finds Pets by status",
+      "description": "Multiple status values can be provided with comma separated strings",
+      "domain": "pet",
+      "intent": "read",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "status",
+          "location": "query",
+          "required": true,
+          "description": "Status values that need to be considered for filter",
+          "schema_": {
+            "type": "array"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "photoUrls"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "category": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "xml": {
+                "name": "Category"
+              }
+            },
+            "name": {
+              "type": "string",
+              "example": "doggie"
+            },
+            "photoUrls": {
+              "type": "array",
+              "xml": {
+                "wrapped": true
+              },
+              "items": {
+                "type": "string",
+                "xml": {
+                  "name": "photoUrl"
+                }
+              }
+            },
+            "tags": {
+              "type": "array",
+              "xml": {
+                "wrapped": true
+              },
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "xml": {
+                  "name": "tag"
+                }
+              }
+            },
+            "status": {
+              "type": "string",
+              "description": "pet status in the store",
+              "enum": [
+                "available",
+                "pending",
+                "sold"
+              ]
+            }
+          },
+          "xml": {
+            "name": "Pet"
+          }
+        }
+      },
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    "findpetsbytags": {
+      "id": "findpetsbytags",
+      "method": "get",
+      "path": "/pet/findByTags",
+      "summary": "Finds Pets by tags",
+      "description": "Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.",
+      "domain": "pet",
+      "intent": "read",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "tags",
+          "location": "query",
+          "required": true,
+          "description": "Tags to filter by",
+          "schema_": {
+            "type": "array"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "photoUrls"
+          ],
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "category": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "xml": {
+                "name": "Category"
+              }
+            },
+            "name": {
+              "type": "string",
+              "example": "doggie"
+            },
+            "photoUrls": {
+              "type": "array",
+              "xml": {
+                "wrapped": true
+              },
+              "items": {
+                "type": "string",
+                "xml": {
+                  "name": "photoUrl"
+                }
+              }
+            },
+            "tags": {
+              "type": "array",
+              "xml": {
+                "wrapped": true
+              },
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "xml": {
+                  "name": "tag"
+                }
+              }
+            },
+            "status": {
+              "type": "string",
+              "description": "pet status in the store",
+              "enum": [
+                "available",
+                "pending",
+                "sold"
+              ]
+            }
+          },
+          "xml": {
+            "name": "Pet"
+          }
+        }
+      },
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    "getpetbyid": {
+      "id": "getpetbyid",
+      "method": "get",
+      "path": "/pet/{petId}",
+      "summary": "Find pet by ID",
+      "description": "Returns a single pet",
+      "domain": "pet",
+      "intent": "read",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "petId",
+          "location": "path",
+          "required": true,
+          "description": "ID of pet to return",
+          "schema_": {
+            "type": "integer"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": {
+        "type": "object",
+        "required": [
+          "name",
+          "photoUrls"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "xml": {
+              "name": "Category"
+            }
+          },
+          "name": {
+            "type": "string",
+            "example": "doggie"
+          },
+          "photoUrls": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "photoUrl"
+              }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "xml": {
+                "name": "tag"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "pet status in the store",
+            "enum": [
+              "available",
+              "pending",
+              "sold"
+            ]
+          }
+        },
+        "xml": {
+          "name": "Pet"
+        }
+      },
+      "security": [
+        "api_key"
+      ]
+    },
+    "updatepetwithform": {
+      "id": "updatepetwithform",
+      "method": "post",
+      "path": "/pet/{petId}",
+      "summary": "Updates a pet in the store with form data",
+      "description": "Updates a pet in the store with form data",
+      "domain": "pet",
+      "intent": "create",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "petId",
+          "location": "path",
+          "required": true,
+          "description": "ID of pet that needs to be updated",
+          "schema_": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "name",
+          "location": "formData",
+          "required": false,
+          "description": "Updated name of the pet",
+          "schema_": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "status",
+          "location": "formData",
+          "required": false,
+          "description": "Updated status of the pet",
+          "schema_": {
+            "type": "string"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": null,
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    "deletepet": {
+      "id": "deletepet",
+      "method": "delete",
+      "path": "/pet/{petId}",
+      "summary": "Deletes a pet",
+      "description": "Deletes a pet",
+      "domain": "pet",
+      "intent": "delete",
+      "tags": [
+        "pet"
+      ],
+      "parameters": [
+        {
+          "name": "api_key",
+          "location": "header",
+          "required": false,
+          "description": null,
+          "schema_": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "petId",
+          "location": "path",
+          "required": true,
+          "description": "Pet id to delete",
+          "schema_": {
+            "type": "integer"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": null,
+      "security": [
+        "petstore_auth"
+      ]
+    },
+    "getinventory": {
+      "id": "getinventory",
+      "method": "get",
+      "path": "/store/inventory",
+      "summary": "Returns pet inventories by status",
+      "description": "Returns a map of status codes to quantities",
+      "domain": "store",
+      "intent": "read",
+      "tags": [
+        "store"
+      ],
+      "parameters": [],
+      "request_body_schema": null,
+      "response_schema": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "security": [
+        "api_key"
+      ]
+    },
+    "placeorder": {
+      "id": "placeorder",
+      "method": "post",
+      "path": "/store/order",
+      "summary": "Place an order for a pet",
+      "description": "Place an order for a pet",
+      "domain": "store",
+      "intent": "create",
+      "tags": [
+        "store"
+      ],
+      "parameters": [
+        {
+          "name": "body",
+          "location": "body",
+          "required": true,
+          "description": "order placed for purchasing the pet",
+          "schema_": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "petId": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "quantity": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "shipDate": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "status": {
+                "type": "string",
+                "description": "Order Status",
+                "enum": [
+                  "placed",
+                  "approved",
+                  "delivered"
+                ]
+              },
+              "complete": {
+                "type": "boolean"
+              }
+            },
+            "xml": {
+              "name": "Order"
+            }
+          }
+        }
+      ],
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "petId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "shipDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "Order Status",
+            "enum": [
+              "placed",
+              "approved",
+              "delivered"
+            ]
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "xml": {
+          "name": "Order"
+        }
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "petId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "shipDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "Order Status",
+            "enum": [
+              "placed",
+              "approved",
+              "delivered"
+            ]
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "xml": {
+          "name": "Order"
+        }
+      },
+      "security": []
+    },
+    "getorderbyid": {
+      "id": "getorderbyid",
+      "method": "get",
+      "path": "/store/order/{orderId}",
+      "summary": "Find purchase order by ID",
+      "description": "For valid response try integer IDs with value >= 1 and <= 10. Other values will generated exceptions",
+      "domain": "store",
+      "intent": "read",
+      "tags": [
+        "store"
+      ],
+      "parameters": [
+        {
+          "name": "orderId",
+          "location": "path",
+          "required": true,
+          "description": "ID of pet that needs to be fetched",
+          "schema_": {
+            "type": "integer"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "petId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "shipDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "Order Status",
+            "enum": [
+              "placed",
+              "approved",
+              "delivered"
+            ]
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "xml": {
+          "name": "Order"
+        }
+      },
+      "security": []
+    },
+    "deleteorder": {
+      "id": "deleteorder",
+      "method": "delete",
+      "path": "/store/order/{orderId}",
+      "summary": "Delete purchase order by ID",
+      "description": "For valid response try integer IDs with positive integer value. Negative or non-integer values will generate API errors",
+      "domain": "store",
+      "intent": "delete",
+      "tags": [
+        "store"
+      ],
+      "parameters": [
+        {
+          "name": "orderId",
+          "location": "path",
+          "required": true,
+          "description": "ID of the order that needs to be deleted",
+          "schema_": {
+            "type": "integer"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": null,
+      "security": []
+    },
+    "createuserswithlistinput": {
+      "id": "createuserswithlistinput",
+      "method": "post",
+      "path": "/user/createWithList",
+      "summary": "Creates list of users with given input array",
+      "description": "Creates list of users with given input array",
+      "domain": "user",
+      "intent": "create",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "body",
+          "location": "body",
+          "required": true,
+          "description": "List of user object",
+          "schema_": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "username": {
+                  "type": "string"
+                },
+                "firstName": {
+                  "type": "string"
+                },
+                "lastName": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "phone": {
+                  "type": "string"
+                },
+                "userStatus": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "User Status"
+                }
+              },
+              "xml": {
+                "name": "User"
+              }
+            }
+          }
+        }
+      ],
+      "request_body_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "username": {
+              "type": "string"
+            },
+            "firstName": {
+              "type": "string"
+            },
+            "lastName": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "password": {
+              "type": "string"
+            },
+            "phone": {
+              "type": "string"
+            },
+            "userStatus": {
+              "type": "integer",
+              "format": "int32",
+              "description": "User Status"
+            }
+          },
+          "xml": {
+            "name": "User"
+          }
+        }
+      },
+      "response_schema": null,
+      "security": []
+    },
+    "getuserbyname": {
+      "id": "getuserbyname",
+      "method": "get",
+      "path": "/user/{username}",
+      "summary": "Get user by user name",
+      "description": "Get user by user name",
+      "domain": "user",
+      "intent": "read",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "username",
+          "location": "path",
+          "required": true,
+          "description": "The name that needs to be fetched. Use user1 for testing. ",
+          "schema_": {
+            "type": "string"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "userStatus": {
+            "type": "integer",
+            "format": "int32",
+            "description": "User Status"
+          }
+        },
+        "xml": {
+          "name": "User"
+        }
+      },
+      "security": []
+    },
+    "updateuser": {
+      "id": "updateuser",
+      "method": "put",
+      "path": "/user/{username}",
+      "summary": "Updated user",
+      "description": "This can only be done by the logged in user.",
+      "domain": "user",
+      "intent": "update",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "username",
+          "location": "path",
+          "required": true,
+          "description": "name that need to be updated",
+          "schema_": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "body",
+          "location": "body",
+          "required": true,
+          "description": "Updated user object",
+          "schema_": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "username": {
+                "type": "string"
+              },
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "userStatus": {
+                "type": "integer",
+                "format": "int32",
+                "description": "User Status"
+              }
+            },
+            "xml": {
+              "name": "User"
+            }
+          }
+        }
+      ],
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "userStatus": {
+            "type": "integer",
+            "format": "int32",
+            "description": "User Status"
+          }
+        },
+        "xml": {
+          "name": "User"
+        }
+      },
+      "response_schema": null,
+      "security": []
+    },
+    "deleteuser": {
+      "id": "deleteuser",
+      "method": "delete",
+      "path": "/user/{username}",
+      "summary": "Delete user",
+      "description": "This can only be done by the logged in user.",
+      "domain": "user",
+      "intent": "delete",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "username",
+          "location": "path",
+          "required": true,
+          "description": "The name that needs to be deleted",
+          "schema_": {
+            "type": "string"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": null,
+      "security": []
+    },
+    "loginuser": {
+      "id": "loginuser",
+      "method": "get",
+      "path": "/user/login",
+      "summary": "Logs user into the system",
+      "description": "Logs user into the system",
+      "domain": "user",
+      "intent": "read",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "username",
+          "location": "query",
+          "required": true,
+          "description": "The user name for login",
+          "schema_": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "password",
+          "location": "query",
+          "required": true,
+          "description": "The password for login in clear text",
+          "schema_": {
+            "type": "string"
+          }
+        }
+      ],
+      "request_body_schema": null,
+      "response_schema": {
+        "type": "string"
+      },
+      "security": []
+    },
+    "logoutuser": {
+      "id": "logoutuser",
+      "method": "get",
+      "path": "/user/logout",
+      "summary": "Logs out current logged in user session",
+      "description": "Logs out current logged in user session",
+      "domain": "user",
+      "intent": "read",
+      "tags": [
+        "user"
+      ],
+      "parameters": [],
+      "request_body_schema": null,
+      "response_schema": null,
+      "security": []
+    },
+    "createuserswitharrayinput": {
+      "id": "createuserswitharrayinput",
+      "method": "post",
+      "path": "/user/createWithArray",
+      "summary": "Creates list of users with given input array",
+      "description": "Creates list of users with given input array",
+      "domain": "user",
+      "intent": "create",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "body",
+          "location": "body",
+          "required": true,
+          "description": "List of user object",
+          "schema_": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "username": {
+                  "type": "string"
+                },
+                "firstName": {
+                  "type": "string"
+                },
+                "lastName": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "password": {
+                  "type": "string"
+                },
+                "phone": {
+                  "type": "string"
+                },
+                "userStatus": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "User Status"
+                }
+              },
+              "xml": {
+                "name": "User"
+              }
+            }
+          }
+        }
+      ],
+      "request_body_schema": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "username": {
+              "type": "string"
+            },
+            "firstName": {
+              "type": "string"
+            },
+            "lastName": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            },
+            "password": {
+              "type": "string"
+            },
+            "phone": {
+              "type": "string"
+            },
+            "userStatus": {
+              "type": "integer",
+              "format": "int32",
+              "description": "User Status"
+            }
+          },
+          "xml": {
+            "name": "User"
+          }
+        }
+      },
+      "response_schema": null,
+      "security": []
+    },
+    "createuser": {
+      "id": "createuser",
+      "method": "post",
+      "path": "/user",
+      "summary": "Create user",
+      "description": "This can only be done by the logged in user.",
+      "domain": "user",
+      "intent": "create",
+      "tags": [
+        "user"
+      ],
+      "parameters": [
+        {
+          "name": "body",
+          "location": "body",
+          "required": true,
+          "description": "Created user object",
+          "schema_": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "username": {
+                "type": "string"
+              },
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "userStatus": {
+                "type": "integer",
+                "format": "int32",
+                "description": "User Status"
+              }
+            },
+            "xml": {
+              "name": "User"
+            }
+          }
+        }
+      ],
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "userStatus": {
+            "type": "integer",
+            "format": "int32",
+            "description": "User Status"
+          }
+        },
+        "xml": {
+          "name": "User"
+        }
+      },
+      "response_schema": null,
+      "security": []
+    }
+  },
+  "warnings": [
+    "Baseline mirrors one endpoint per tool."
+  ]
+}

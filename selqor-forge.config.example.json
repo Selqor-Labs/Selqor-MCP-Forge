@@ -1,0 +1,16 @@
+{
+  "license_notice": "Apache-2.0 applies. Attribution to Selqor Labs is appreciated but not required.",
+  "target_tool_count": {
+    "min": 5,
+    "max": 15
+  },
+  "include_custom_request_tool": true,
+  "output_targets": ["typescript", "rust"],
+  "default_transport": "stdio",
+  "anthropic": {
+    "enabled": true,
+    "model": "claude-sonnet-4-20250514",
+    "max_tokens": 3200,
+    "temperature": 0.0
+  }
+}

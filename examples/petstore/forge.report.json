@@ -1,0 +1,10 @@
+{
+  "score": 100,
+  "compression_ratio": 0.25,
+  "coverage": 1.0,
+  "description_clarity": 1.0,
+  "schema_completeness": 1.0,
+  "warnings": [
+    "ANTHROPIC_API_KEY was not found; using heuristic analysis instead."
+  ]
+}

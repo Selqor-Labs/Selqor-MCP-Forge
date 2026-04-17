@@ -1,0 +1,95 @@
+{
+  "license_notice": "Apache-2.0 applies. Attribution to Selqor Labs is appreciated but not required.",
+  "apis": [
+    {
+      "name": "Stripe",
+      "slug": "stripe",
+      "spec": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.yaml",
+      "auth_type": "api_key",
+      "complexity": "very_high",
+      "expected_tools": "10-15",
+      "domain": "payments"
+    },
+    {
+      "name": "GitHub",
+      "slug": "github",
+      "spec": "https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.yaml",
+      "auth_type": "bearer",
+      "complexity": "very_high",
+      "expected_tools": "10-12",
+      "domain": "devops"
+    },
+    {
+      "name": "Twilio",
+      "slug": "twilio",
+      "spec": "https://raw.githubusercontent.com/twilio/twilio-oai/main/spec/json/twilio_api_v2010.json",
+      "auth_type": "basic",
+      "complexity": "medium",
+      "expected_tools": "6-8",
+      "domain": "communications"
+    },
+    {
+      "name": "Slack",
+      "slug": "slack",
+      "spec": "https://raw.githubusercontent.com/slackapi/slack-api-specs/main/web-api/slack_web_openapi_v2_without_examples.json",
+      "auth_type": "oauth2",
+      "complexity": "high",
+      "expected_tools": "8-10",
+      "domain": "messaging"
+    },
+    {
+      "name": "OpenWeather",
+      "slug": "openweather",
+      "spec": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/openweathermap.org/2.5.0/openapi.yaml",
+      "auth_type": "api_key",
+      "complexity": "low",
+      "expected_tools": "3-4",
+      "domain": "data"
+    },
+    {
+      "name": "PetStore",
+      "slug": "petstore",
+      "spec": "https://petstore3.swagger.io/api/v3/openapi.json",
+      "auth_type": "api_key",
+      "complexity": "low",
+      "expected_tools": "4-5",
+      "domain": "reference"
+    },
+    {
+      "name": "Notion",
+      "slug": "notion",
+      "spec": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/notion.com/1.0.0/openapi.yaml",
+      "auth_type": "bearer",
+      "complexity": "medium",
+      "expected_tools": "5-7",
+      "domain": "productivity"
+    },
+    {
+      "name": "HubSpot",
+      "slug": "hubspot",
+      "spec": "https://raw.githubusercontent.com/HubSpot/HubSpot-public-api-spec-collection/main/PublicApiSpecs/CRM/Contacts/Rollouts/424/v3/contacts.json",
+      "auth_type": "oauth2",
+      "complexity": "high",
+      "expected_tools": "8-12",
+      "domain": "crm"
+    },
+    {
+      "name": "Shopify",
+      "slug": "shopify",
+      "spec": "https://raw.githubusercontent.com/APIs-guru/openapi-directory/main/APIs/shopify.com/admin-rest/2024-01/openapi.yaml",
+      "auth_type": "api_key",
+      "complexity": "high",
+      "expected_tools": "8-10",
+      "domain": "ecommerce"
+    },
+    {
+      "name": "SendGrid",
+      "slug": "sendgrid",
+      "spec": "https://raw.githubusercontent.com/sendgrid/sendgrid-oai/main/oai.json",
+      "auth_type": "api_key",
+      "complexity": "medium",
+      "expected_tools": "5-6",
+      "domain": "email"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+id: github-issues
+name: GitHub Issues Real API E2E
+provider: github
+spec: openapi.subset.json
+target: ts
+transport: stdio
+llm_config_id: mistral-small-nutrire
+source_docs:
+  - https://docs.github.com/rest/issues/issues
+  - https://github.com/github/rest-api-description
+provenance:
+  - Hand-curated subset from GitHub's public REST API shape for end-user validation.
+  - Keep endpoint behavior aligned with official GitHub Issues docs before expanding the case.
+
+required_env:
+  - GITHUB_TOKEN
+  - GITHUB_OWNER
+  - GITHUB_REPO
+
+acceptance:
+  - generate_mcp_server
+  - inspect_tool_plan
+  - build_typescript_server
+  - create_issue
+  - read_issue
+  - comment_issue
+  - close_issue
+
+notes:
+  - Use a disposable repository.
+  - Use a fine-grained token scoped only to that repository.
+  - Do not store raw token values in run evidence.
