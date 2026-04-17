@@ -18,9 +18,17 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from selqor_forge.dashboard.middleware import Ctx
+from selqor_forge.dashboard.playground_assertions import (
+    evaluate_all,
+    ensure_jsonable,
+    validate_assertions,
+)
 from selqor_forge.dashboard.repositories import (
-    PlaygroundSessionRepository,
+    PlaygroundAgentRunRepository,
     PlaygroundExecutionRepository,
+    PlaygroundSessionRepository,
+    PlaygroundTestCaseRepository,
+    PlaygroundTestRunRepository,
 )
 
 router = APIRouter(prefix="/playground", tags=["playground"])
@@ -72,6 +80,36 @@ class SuggestArgsRequest(BaseModel):
     tool_name: str
     intent: str = ""
     config_id: str | None = None
+
+
+class TestCaseRequest(BaseModel):
+    """Create or update a test case."""
+    tool_name: str
+    name: str
+    description: str | None = None
+    arguments: dict[str, Any] = {}
+    assertions: list[dict[str, Any]] = []
+
+
+class TestCaseUpdateRequest(BaseModel):
+    """Partial update of a test case."""
+    name: str | None = None
+    description: str | None = None
+    arguments: dict[str, Any] | None = None
+    assertions: list[dict[str, Any]] | None = None
+
+
+class RunSuiteRequest(BaseModel):
+    """Run a subset (or all) of the saved test cases for a session."""
+    testcase_ids: list[str] | None = None  # None = run all on this session
+
+
+class AgentChatRequest(BaseModel):
+    """Drive an agent-in-the-loop conversation against the live MCP session."""
+    message: str
+    config_id: str | None = None
+    max_iterations: int = 6
+    system_prompt: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -461,9 +499,19 @@ async def list_tools(ctx: Ctx, session_id: str) -> dict:
         db_session.close()
 
 
-@router.post("/sessions/{session_id}/execute")
-async def execute_tool(ctx: Ctx, session_id: str, body: ExecuteToolRequest) -> dict:
-    """Execute a tool on the connected MCP server."""
+async def _run_tool(
+    ctx,
+    session_id: str,
+    tool_name: str,
+    arguments: dict,
+    *,
+    origin: str = "manual",
+) -> dict:
+    """Execute a tool, persist the result, and return ``{status, result?, error?, latency_ms, executed_at, raw_rpc}``.
+
+    Shared by the manual execute endpoint, the suite runner, and the agent loop
+    so every code path records the same shape of execution.
+    """
     session = _sessions.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -471,35 +519,44 @@ async def execute_tool(ctx: Ctx, session_id: str, body: ExecuteToolRequest) -> d
     if session.get("status") != "connected":
         raise HTTPException(status_code=400, detail="Session is not connected")
 
-    # Find the tool in session
     tools = session.get("tools", [])
-    tool = next((t for t in tools if t.get("name") == body.tool_name), None)
+    tool = next((t for t in tools if t.get("name") == tool_name), None)
     if not tool:
-        raise HTTPException(status_code=404, detail=f"Tool '{body.tool_name}' not found on this server")
+        raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found on this server")
 
     start_time = time.time()
+    raw_rpc = {
+        "request": {
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {"name": tool_name, "arguments": arguments},
+        },
+        "response": None,
+    }
+
     try:
         if session["transport"] == "stdio":
-            result = await _execute_stdio_tool(session_id, body.tool_name, body.arguments)
+            result = await _execute_stdio_tool(session_id, tool_name, arguments)
         else:
-            result = await _execute_http_tool(session_id, session, body.tool_name, body.arguments)
+            result = await _execute_http_tool(session_id, session, tool_name, arguments)
 
         elapsed = round((time.time() - start_time) * 1000, 1)
         executed_at = datetime.utcnow().isoformat() + "Z"
         exec_id = str(uuid.uuid4())
+        raw_rpc["response"] = {"jsonrpc": "2.0", "result": result}
 
-        # Record in execution history
+        # In-memory history (kept for the UI's live-refresh path)
         execution_record = {
             "id": exec_id,
-            "tool_name": body.tool_name,
-            "arguments": body.arguments,
+            "tool_name": tool_name,
+            "arguments": arguments,
             "result": result,
             "status": "success",
             "latency_ms": elapsed,
             "executed_at": executed_at,
+            "origin": origin,
         }
         session.setdefault("executions", []).insert(0, execution_record)
-        # Keep last 50 executions
         session["executions"] = session["executions"][:50]
 
         db_session = ctx.db_session_factory()
@@ -508,39 +565,46 @@ async def execute_tool(ctx: Ctx, session_id: str, body: ExecuteToolRequest) -> d
             exec_repo.create(
                 id=exec_id,
                 session_id=session_id,
-                tool_name=body.tool_name,
-                arguments=body.arguments,
+                tool_name=tool_name,
+                arguments=arguments,
                 result=result,
                 status="success",
                 latency_ms=elapsed,
                 executed_at=executed_at,
+                raw_rpc=raw_rpc,
+                origin=origin,
             )
         finally:
             db_session.close()
 
         return {
+            "id": exec_id,
             "status": "success",
-            "tool_name": body.tool_name,
+            "tool_name": tool_name,
             "result": result,
             "latency_ms": elapsed,
             "executed_at": executed_at,
+            "raw_rpc": raw_rpc,
         }
+
     except HTTPException:
         raise
     except Exception as e:
         elapsed = round((time.time() - start_time) * 1000, 1)
         executed_at = datetime.utcnow().isoformat() + "Z"
         exec_id = str(uuid.uuid4())
+        raw_rpc["response"] = {"jsonrpc": "2.0", "error": {"message": str(e)}}
 
         execution_record = {
             "id": exec_id,
-            "tool_name": body.tool_name,
-            "arguments": body.arguments,
+            "tool_name": tool_name,
+            "arguments": arguments,
             "result": None,
             "error": str(e),
             "status": "error",
             "latency_ms": elapsed,
             "executed_at": executed_at,
+            "origin": origin,
         }
         session.setdefault("executions", []).insert(0, execution_record)
         session["executions"] = session["executions"][:50]
@@ -551,24 +615,44 @@ async def execute_tool(ctx: Ctx, session_id: str, body: ExecuteToolRequest) -> d
             exec_repo.create(
                 id=exec_id,
                 session_id=session_id,
-                tool_name=body.tool_name,
-                arguments=body.arguments,
+                tool_name=tool_name,
+                arguments=arguments,
                 result=None,
                 error=str(e),
                 status="error",
                 latency_ms=elapsed,
                 executed_at=executed_at,
+                raw_rpc=raw_rpc,
+                origin=origin,
             )
         finally:
             db_session.close()
 
         return {
+            "id": exec_id,
             "status": "error",
-            "tool_name": body.tool_name,
+            "tool_name": tool_name,
             "error": str(e),
             "latency_ms": elapsed,
             "executed_at": executed_at,
+            "raw_rpc": raw_rpc,
         }
+
+
+@router.post("/sessions/{session_id}/execute")
+async def execute_tool(ctx: Ctx, session_id: str, body: ExecuteToolRequest) -> dict:
+    """Execute a tool on the connected MCP server."""
+    out = await _run_tool(ctx, session_id, body.tool_name, body.arguments, origin="manual")
+    # Keep the legacy response shape for backwards compatibility
+    return {
+        "status": out["status"],
+        "tool_name": out["tool_name"],
+        "result": out.get("result"),
+        "error": out.get("error"),
+        "latency_ms": out["latency_ms"],
+        "executed_at": out["executed_at"],
+        "raw_rpc": out.get("raw_rpc"),
+    }
 
 
 @router.post("/sessions/{session_id}/suggest-args")
@@ -842,6 +926,673 @@ async def health_check(ctx: Ctx, session_id: str) -> dict:
             finally:
                 db_session.close()
             return {"healthy": False, "status": "disconnected", "reason": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# Test cases â€” saveable args + assertions, run against live session
+# ---------------------------------------------------------------------------
+
+
+def _require_session(ctx, session_id: str) -> tuple[dict, Any]:
+    """Return (live_session_dict, db_session_row). Either may be None if missing."""
+    live = _sessions.get(session_id)
+    if live:
+        return live, None
+    db_session = ctx.db_session_factory()
+    try:
+        repo = PlaygroundSessionRepository(db_session)
+        db_sess = repo.get_by_id(session_id)
+    finally:
+        db_session.close()
+    if not db_sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return _model_to_dict(db_sess), db_sess
+
+
+def _tool_exists(live: dict, tool_name: str) -> bool:
+    tools = live.get("tools") or []
+    return any((t.get("name") if isinstance(t, dict) else t) == tool_name for t in tools)
+
+
+@router.get("/sessions/{session_id}/testcases")
+async def list_testcases(ctx: Ctx, session_id: str, tool_name: str | None = None) -> dict:
+    """List test cases for a session (optionally filtered by tool name)."""
+    _require_session(ctx, session_id)
+    db = ctx.db_session_factory()
+    try:
+        repo = PlaygroundTestCaseRepository(db)
+        items = repo.list_by_session(session_id, tool_name)
+        return {"testcases": [_model_to_dict(i) for i in items]}
+    finally:
+        db.close()
+
+
+@router.post("/sessions/{session_id}/testcases")
+async def create_testcase(ctx: Ctx, session_id: str, body: TestCaseRequest) -> dict:
+    """Create a new test case bound to this session and tool."""
+    live, _ = _require_session(ctx, session_id)
+    if not _tool_exists(live, body.tool_name):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tool '{body.tool_name}' is not available on this session.",
+        )
+    if not (body.name or "").strip():
+        raise HTTPException(status_code=400, detail="Test case name is required.")
+
+    assertions = validate_assertions(body.assertions)
+    db = ctx.db_session_factory()
+    try:
+        repo = PlaygroundTestCaseRepository(db)
+        now = datetime.utcnow().isoformat() + "Z"
+        tc = repo.create(
+            id=str(uuid.uuid4()),
+            session_id=session_id,
+            tool_name=body.tool_name,
+            name=body.name.strip(),
+            description=(body.description or "").strip() or None,
+            arguments=body.arguments or {},
+            assertions=assertions,
+            created_at=now,
+            updated_at=now,
+        )
+        return {"testcase": _model_to_dict(tc)}
+    finally:
+        db.close()
+
+
+@router.patch("/testcases/{testcase_id}")
+async def update_testcase(ctx: Ctx, testcase_id: str, body: TestCaseUpdateRequest) -> dict:
+    """Partial update of a test case."""
+    db = ctx.db_session_factory()
+    try:
+        repo = PlaygroundTestCaseRepository(db)
+        tc = repo.get_by_id(testcase_id)
+        if not tc:
+            raise HTTPException(status_code=404, detail="Test case not found")
+        patch: dict = {"updated_at": datetime.utcnow().isoformat() + "Z"}
+        if body.name is not None:
+            name = body.name.strip()
+            if not name:
+                raise HTTPException(status_code=400, detail="Name cannot be empty")
+            patch["name"] = name
+        if body.description is not None:
+            patch["description"] = body.description.strip() or None
+        if body.arguments is not None:
+            patch["arguments"] = body.arguments
+        if body.assertions is not None:
+            patch["assertions"] = validate_assertions(body.assertions)
+        updated = repo.update(testcase_id, **patch)
+        return {"testcase": _model_to_dict(updated)}
+    finally:
+        db.close()
+
+
+@router.delete("/testcases/{testcase_id}")
+async def delete_testcase(ctx: Ctx, testcase_id: str) -> dict:
+    db = ctx.db_session_factory()
+    try:
+        repo = PlaygroundTestCaseRepository(db)
+        if not repo.get_by_id(testcase_id):
+            raise HTTPException(status_code=404, detail="Test case not found")
+        repo.delete(testcase_id)
+        return {"deleted": testcase_id}
+    finally:
+        db.close()
+
+
+async def _run_one_testcase(ctx, session_id: str, tc) -> dict:
+    """Execute a single test case against the live session and persist a PlaygroundTestRun."""
+    exec_out = await _run_tool(
+        ctx, session_id, tc.tool_name, tc.arguments or {}, origin="suite",
+    )
+    status = exec_out["status"]
+    latency = exec_out.get("latency_ms")
+    result = exec_out.get("result") if status == "success" else None
+    error = exec_out.get("error")
+    overall, outcomes = evaluate_all(
+        tc.assertions or [],
+        result=result,
+        status=status,
+        latency_ms=latency,
+    )
+    # If the tool call itself crashed, that's a run error, not a plain fail.
+    if status == "error" and not (tc.assertions or []):
+        overall = "error"
+
+    # Ensure assertion outcomes are JSON-safe (actual values may contain complex stuff)
+    safe_outcomes = [
+        {**o, "actual": ensure_jsonable(o.get("actual"))} for o in outcomes
+    ]
+
+    now = datetime.utcnow().isoformat() + "Z"
+    db = ctx.db_session_factory()
+    try:
+        run_repo = PlaygroundTestRunRepository(db)
+        run = run_repo.create(
+            id=str(uuid.uuid4()),
+            testcase_id=tc.id,
+            session_id=session_id,
+            tool_name=tc.tool_name,
+            status=overall,
+            assertion_results=safe_outcomes,
+            result=result,
+            error=error,
+            latency_ms=latency,
+            executed_at=now,
+        )
+        # Update cached last-run on the case
+        tc_repo = PlaygroundTestCaseRepository(db)
+        tc_repo.update(tc.id, last_status=overall, last_run_at=now)
+    finally:
+        db.close()
+    return {
+        "testcase_id": tc.id,
+        "name": tc.name,
+        "tool_name": tc.tool_name,
+        "status": overall,
+        "latency_ms": latency,
+        "error": error,
+        "assertion_results": safe_outcomes,
+        "executed_at": now,
+        "run_id": run.id,
+    }
+
+
+@router.post("/sessions/{session_id}/run-suite")
+async def run_suite(ctx: Ctx, session_id: str, body: RunSuiteRequest) -> dict:
+    """Run saved test cases against the live MCP session, evaluate assertions, return summary."""
+    _require_session(ctx, session_id)
+    db = ctx.db_session_factory()
+    try:
+        repo = PlaygroundTestCaseRepository(db)
+        if body.testcase_ids:
+            cases = [c for c in (repo.get_by_id(i) for i in body.testcase_ids) if c is not None]
+        else:
+            cases = repo.list_by_session(session_id)
+    finally:
+        db.close()
+
+    if not cases:
+        return {
+            "summary": {"total": 0, "passed": 0, "failed": 0, "errored": 0},
+            "results": [],
+        }
+
+    results: list[dict] = []
+    for tc in cases:
+        try:
+            results.append(await _run_one_testcase(ctx, session_id, tc))
+        except HTTPException as exc:
+            results.append({
+                "testcase_id": tc.id,
+                "name": tc.name,
+                "tool_name": tc.tool_name,
+                "status": "error",
+                "error": exc.detail if isinstance(exc.detail, str) else str(exc.detail),
+                "assertion_results": [],
+            })
+
+    summary = {
+        "total": len(results),
+        "passed": sum(1 for r in results if r["status"] == "pass"),
+        "failed": sum(1 for r in results if r["status"] == "fail"),
+        "errored": sum(1 for r in results if r["status"] == "error"),
+    }
+    return {"summary": summary, "results": results}
+
+
+@router.get("/testcases/{testcase_id}/runs")
+async def testcase_runs(ctx: Ctx, testcase_id: str) -> dict:
+    """List recent runs for a test case."""
+    db = ctx.db_session_factory()
+    try:
+        tc = PlaygroundTestCaseRepository(db).get_by_id(testcase_id)
+        if not tc:
+            raise HTTPException(status_code=404, detail="Test case not found")
+        runs = PlaygroundTestRunRepository(db).list_by_testcase(testcase_id)
+        return {"runs": [_model_to_dict(r) for r in runs]}
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# Per-tool stats + raw JSON-RPC trace
+# ---------------------------------------------------------------------------
+
+
+def _percentile(sorted_values: list[float], pct: float) -> float | None:
+    if not sorted_values:
+        return None
+    if len(sorted_values) == 1:
+        return sorted_values[0]
+    # Nearest-rank; good enough for small N that a playground produces.
+    rank = max(0, min(len(sorted_values) - 1, int(round((pct / 100.0) * (len(sorted_values) - 1)))))
+    return sorted_values[rank]
+
+
+@router.get("/sessions/{session_id}/stats")
+async def session_stats(ctx: Ctx, session_id: str) -> dict:
+    """Per-tool aggregates for the session: invocations, success/error rate, p50/p95 latency."""
+    _require_session(ctx, session_id)
+    db = ctx.db_session_factory()
+    try:
+        exec_repo = PlaygroundExecutionRepository(db)
+        rows = exec_repo.list_for_stats(session_id)
+    finally:
+        db.close()
+
+    by_tool: dict[str, dict] = {}
+    for row in rows:
+        bucket = by_tool.setdefault(row.tool_name, {
+            "tool_name": row.tool_name,
+            "invocations": 0,
+            "successes": 0,
+            "errors": 0,
+            "latencies": [],
+            "last_error": None,
+            "last_status": None,
+            "last_executed_at": None,
+        })
+        bucket["invocations"] += 1
+        if row.status == "success":
+            bucket["successes"] += 1
+        else:
+            bucket["errors"] += 1
+            if bucket["last_error"] is None:
+                bucket["last_error"] = row.error
+        if row.latency_ms is not None:
+            bucket["latencies"].append(row.latency_ms)
+        if bucket["last_status"] is None:
+            bucket["last_status"] = row.status
+            bucket["last_executed_at"] = row.executed_at
+
+    stats: list[dict] = []
+    for bucket in by_tool.values():
+        latencies = sorted(bucket.pop("latencies"))
+        total = bucket["invocations"]
+        bucket["success_rate"] = round(bucket["successes"] / total, 3) if total else 0.0
+        bucket["error_rate"] = round(bucket["errors"] / total, 3) if total else 0.0
+        bucket["p50_ms"] = _percentile(latencies, 50)
+        bucket["p95_ms"] = _percentile(latencies, 95)
+        stats.append(bucket)
+
+    stats.sort(key=lambda s: s["invocations"], reverse=True)
+    overall_total = sum(s["invocations"] for s in stats)
+    overall_errors = sum(s["errors"] for s in stats)
+    return {
+        "stats": stats,
+        "total_invocations": overall_total,
+        "overall_error_rate": round(overall_errors / overall_total, 3) if overall_total else 0.0,
+    }
+
+
+@router.get("/sessions/{session_id}/trace")
+async def session_trace(ctx: Ctx, session_id: str, limit: int = 25) -> dict:
+    """Return the raw JSON-RPC frames from recent executions, newest-first."""
+    _require_session(ctx, session_id)
+    limit = max(1, min(100, int(limit)))
+    db = ctx.db_session_factory()
+    try:
+        exec_repo = PlaygroundExecutionRepository(db)
+        rows = exec_repo.list_by_session(session_id, limit=limit)
+    finally:
+        db.close()
+    frames = []
+    for row in rows:
+        frames.append({
+            "id": row.id,
+            "tool_name": row.tool_name,
+            "status": row.status,
+            "origin": getattr(row, "origin", None) or "manual",
+            "latency_ms": row.latency_ms,
+            "executed_at": row.executed_at,
+            "raw_rpc": getattr(row, "raw_rpc", None),
+        })
+    return {"frames": frames}
+
+
+# ---------------------------------------------------------------------------
+# Agent-in-the-loop chat
+# ---------------------------------------------------------------------------
+
+
+def _tools_to_anthropic_schema(tools: list[dict]) -> list[dict]:
+    """Convert MCP tool definitions to Anthropic ``tool_use`` schema."""
+    out: list[dict] = []
+    for t in tools or []:
+        if not isinstance(t, dict) or not t.get("name"):
+            continue
+        schema = t.get("inputSchema") or t.get("input_schema") or {"type": "object", "properties": {}}
+        out.append({
+            "name": t["name"],
+            "description": t.get("description") or "",
+            "input_schema": schema,
+        })
+    return out
+
+
+def _tools_to_openai_schema(tools: list[dict]) -> list[dict]:
+    """Convert MCP tool definitions to OpenAI ``function`` tools."""
+    out: list[dict] = []
+    for t in tools or []:
+        if not isinstance(t, dict) or not t.get("name"):
+            continue
+        schema = t.get("inputSchema") or t.get("input_schema") or {"type": "object", "properties": {}}
+        out.append({
+            "type": "function",
+            "function": {
+                "name": t["name"],
+                "description": t.get("description") or "",
+                "parameters": schema,
+            },
+        })
+    return out
+
+
+async def _anthropic_turn(config: dict, system_prompt: str, messages: list[dict], tools_schema: list[dict]) -> dict:
+    """Single call to Anthropic /v1/messages with tool_use."""
+    import httpx
+    base = (config.get("base_url") or "https://api.anthropic.com").rstrip("/")
+    api_key = (config.get("api_key") or "").strip()
+    if not api_key:
+        raise ValueError("Anthropic API key missing")
+    headers = {
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+        "x-api-key": api_key,
+    }
+    payload = {
+        "model": config["model"],
+        "max_tokens": 1024,
+        "system": system_prompt,
+        "messages": messages,
+        "tools": tools_schema,
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(f"{base}/v1/messages", json=payload, headers=headers)
+    if not resp.is_success:
+        raise ValueError(f"Anthropic error {resp.status_code}: {resp.text[:400]}")
+    return resp.json()
+
+
+async def _openai_turn(config: dict, system_prompt: str, messages: list[dict], tools_schema: list[dict]) -> dict:
+    """Single call to an OpenAI-compatible chat/completions endpoint with tool calls."""
+    import httpx
+    default_bases = {
+        "openai": "https://api.openai.com",
+        "mistral": "https://api.mistral.ai",
+        "sarvam": "https://api.sarvam.ai",
+    }
+    provider = (config.get("provider") or "").strip().lower()
+    base = (config.get("base_url") or default_bases.get(provider, "")).rstrip("/")
+    if not base:
+        raise ValueError(f"{provider or 'provider'} requires a base URL")
+    headers: dict[str, str] = {"content-type": "application/json"}
+    auth_type = (config.get("auth_type") or "api_key").strip().lower()
+    api_key = (config.get("api_key") or "").strip()
+    bearer = (config.get("bearer_token") or "").strip()
+    if auth_type == "api_key" and api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    elif auth_type == "bearer" and (bearer or api_key):
+        headers["Authorization"] = f"Bearer {bearer or api_key}"
+    # Preserve the system prompt as a message, prepend only if caller didn't.
+    chat_messages = [{"role": "system", "content": system_prompt}] + messages
+    payload = {
+        "model": config["model"],
+        "messages": chat_messages,
+        "tools": tools_schema,
+        "tool_choice": "auto",
+        "max_tokens": 1024,
+        "temperature": 0.2,
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(f"{base}/v1/chat/completions", json=payload, headers=headers)
+    if not resp.is_success:
+        raise ValueError(f"{provider} error {resp.status_code}: {resp.text[:400]}")
+    return resp.json()
+
+
+@router.post("/sessions/{session_id}/agent-chat")
+async def agent_chat(ctx: Ctx, session_id: str, body: AgentChatRequest) -> dict:
+    """Run a short agent-in-the-loop conversation against the live MCP session.
+
+    The agent iterates: LLM proposes tool call(s) â†’ playground executes â†’ result fed
+    back â†’ LLM produces next turn, until the LLM stops calling tools or
+    ``max_iterations`` is reached. Returns the full trace plus the final message.
+
+    Currently supports Anthropic (``messages`` + ``tool_use``) and OpenAI-compatible
+    (``chat/completions`` + ``tools``) providers. Other providers surface an error.
+    """
+    from selqor_forge.dashboard.routes.llm_test import _resolve_config
+
+    live, _ = _require_session(ctx, session_id)
+    if live.get("status") != "connected":
+        raise HTTPException(status_code=400, detail="Session is not connected")
+
+    tools = live.get("tools") or []
+    if not tools:
+        raise HTTPException(status_code=400, detail="Session has no tools to invoke")
+
+    config = _resolve_config(ctx, body.config_id)
+    if config is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No default LLM config set. Configure one in LLM Config before using agent chat.",
+        )
+    provider = (config.get("provider") or "").strip().lower()
+    if provider not in ("anthropic", "openai", "mistral", "sarvam"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Agent chat currently supports anthropic and openai-compatible providers; got '{provider}'.",
+        )
+
+    system_prompt = body.system_prompt or (
+        "You are a helpful assistant connected to a live MCP server. "
+        "Use the provided tools to fulfill the user's request. Prefer a tool over "
+        "guessing. When you have the answer, reply in plain text and stop calling tools."
+    )
+
+    max_iter = max(1, min(12, body.max_iterations or 6))
+    trace: list[dict] = []
+    tools_used: list[str] = []
+    started = time.time()
+    status = "completed"
+    error: str | None = None
+    final_message: str | None = None
+
+    try:
+        if provider == "anthropic":
+            tools_schema = _tools_to_anthropic_schema(tools)
+            messages: list[dict] = [{"role": "user", "content": body.message}]
+            trace.append({"role": "user", "content": body.message})
+
+            for i in range(max_iter):
+                data = await _anthropic_turn(config, system_prompt, messages, tools_schema)
+                blocks = data.get("content") or []
+                # Append the assistant message in Anthropic shape for the next turn.
+                messages.append({"role": "assistant", "content": blocks})
+
+                text_parts = [b.get("text", "") for b in blocks if b.get("type") == "text"]
+                tool_uses = [b for b in blocks if b.get("type") == "tool_use"]
+                trace.append({
+                    "role": "assistant",
+                    "iteration": i + 1,
+                    "text": "".join(text_parts),
+                    "tool_calls": [{"name": b.get("name"), "arguments": b.get("input") or {}} for b in tool_uses],
+                    "stop_reason": data.get("stop_reason"),
+                })
+
+                if not tool_uses:
+                    final_message = "".join(text_parts).strip() or None
+                    break
+
+                # Execute each requested tool and feed results back.
+                tool_results_block: list[dict] = []
+                for tu in tool_uses:
+                    tname = tu.get("name") or ""
+                    targs = tu.get("input") or {}
+                    if not _tool_exists(live, tname):
+                        tool_results_block.append({
+                            "type": "tool_result",
+                            "tool_use_id": tu.get("id"),
+                            "content": f"Error: tool '{tname}' does not exist on this server.",
+                            "is_error": True,
+                        })
+                        trace.append({"role": "tool", "tool_name": tname, "status": "error",
+                                      "error": "unknown tool"})
+                        continue
+                    tools_used.append(tname)
+                    exec_out = await _run_tool(ctx, session_id, tname, targs, origin="agent")
+                    # Anthropic tool_result content must be a string or list of blocks; we
+                    # serialize MCP result to JSON text for the model to consume.
+                    content_text = json.dumps(exec_out.get("result") if exec_out["status"] == "success" else {"error": exec_out.get("error")})
+                    tool_results_block.append({
+                        "type": "tool_result",
+                        "tool_use_id": tu.get("id"),
+                        "content": content_text,
+                        "is_error": exec_out["status"] != "success",
+                    })
+                    trace.append({
+                        "role": "tool",
+                        "tool_name": tname,
+                        "arguments": targs,
+                        "status": exec_out["status"],
+                        "latency_ms": exec_out.get("latency_ms"),
+                        "error": exec_out.get("error"),
+                        "result_preview": (content_text[:500] + "â€¦") if len(content_text) > 500 else content_text,
+                    })
+
+                messages.append({"role": "user", "content": tool_results_block})
+            else:
+                status = "max_iterations"
+
+        else:  # OpenAI-compatible (openai/mistral/sarvam) with function calls
+            tools_schema = _tools_to_openai_schema(tools)
+            oa_messages: list[dict] = [{"role": "user", "content": body.message}]
+            trace.append({"role": "user", "content": body.message})
+
+            for i in range(max_iter):
+                data = await _openai_turn(config, system_prompt, oa_messages, tools_schema)
+                choice = (data.get("choices") or [{}])[0]
+                msg = choice.get("message") or {}
+                oa_messages.append(msg)
+                tool_calls = msg.get("tool_calls") or []
+                text = msg.get("content") or ""
+                trace.append({
+                    "role": "assistant",
+                    "iteration": i + 1,
+                    "text": text,
+                    "tool_calls": [
+                        {
+                            "name": (tc.get("function") or {}).get("name"),
+                            "arguments": _safe_json(tc.get("function", {}).get("arguments")),
+                        }
+                        for tc in tool_calls
+                    ],
+                    "stop_reason": choice.get("finish_reason"),
+                })
+                if not tool_calls:
+                    final_message = text.strip() or None
+                    break
+
+                for tc in tool_calls:
+                    fn = tc.get("function") or {}
+                    tname = fn.get("name") or ""
+                    targs = _safe_json(fn.get("arguments")) or {}
+                    if not _tool_exists(live, tname):
+                        oa_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tc.get("id"),
+                            "content": json.dumps({"error": f"unknown tool '{tname}'"}),
+                        })
+                        trace.append({"role": "tool", "tool_name": tname, "status": "error",
+                                      "error": "unknown tool"})
+                        continue
+                    tools_used.append(tname)
+                    exec_out = await _run_tool(ctx, session_id, tname, targs, origin="agent")
+                    content = json.dumps(exec_out.get("result") if exec_out["status"] == "success"
+                                         else {"error": exec_out.get("error")})
+                    oa_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.get("id"),
+                        "content": content,
+                    })
+                    trace.append({
+                        "role": "tool",
+                        "tool_name": tname,
+                        "arguments": targs,
+                        "status": exec_out["status"],
+                        "latency_ms": exec_out.get("latency_ms"),
+                        "error": exec_out.get("error"),
+                        "result_preview": (content[:500] + "â€¦") if len(content) > 500 else content,
+                    })
+            else:
+                status = "max_iterations"
+
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover
+        status = "error"
+        error = str(exc)
+
+    total_ms = round((time.time() - started) * 1000, 1)
+
+    # Persist the run for future introspection
+    db = ctx.db_session_factory()
+    try:
+        PlaygroundAgentRunRepository(db).create(
+            id=str(uuid.uuid4()),
+            session_id=session_id,
+            user_message=body.message,
+            final_message=final_message,
+            trace=trace,
+            tools_used=tools_used,
+            iterations=sum(1 for t in trace if t.get("role") == "assistant"),
+            status=status,
+            error=error,
+            total_latency_ms=total_ms,
+            llm_model=config.get("model"),
+            llm_provider=provider,
+            created_at=datetime.utcnow().isoformat() + "Z",
+        )
+    finally:
+        db.close()
+
+    return {
+        "status": status,
+        "final_message": final_message,
+        "trace": trace,
+        "tools_used": tools_used,
+        "iterations": sum(1 for t in trace if t.get("role") == "assistant"),
+        "total_latency_ms": total_ms,
+        "error": error,
+        "llm_model": config.get("model"),
+        "llm_provider": provider,
+    }
+
+
+@router.get("/sessions/{session_id}/agent-runs")
+async def list_agent_runs(ctx: Ctx, session_id: str) -> dict:
+    """Recent agent-chat runs for this session."""
+    _require_session(ctx, session_id)
+    db = ctx.db_session_factory()
+    try:
+        rows = PlaygroundAgentRunRepository(db).list_by_session(session_id)
+        return {"runs": [_model_to_dict(r) for r in rows]}
+    finally:
+        db.close()
+
+
+def _safe_json(text: Any) -> Any:
+    """Tolerant JSON parse for OpenAI tool_call.arguments (which is a JSON string)."""
+    if text is None:
+        return {}
+    if isinstance(text, (dict, list)):
+        return text
+    try:
+        return json.loads(text)
+    except Exception:
+        return {}
 
 
 # ---------------------------------------------------------------------------

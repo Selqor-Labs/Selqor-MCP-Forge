@@ -40,8 +40,14 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 import useStore from "../store/useStore";
 import ToolingComparison from "../components/ToolingComparison";
+import TestCasesPanel from "../components/PlaygroundPanels/TestCasesPanel";
+import AgentPanel from "../components/PlaygroundPanels/AgentPanel";
+import TracePanel from "../components/PlaygroundPanels/TracePanel";
+import StatsPanel from "../components/PlaygroundPanels/StatsPanel";
 import {
   fetchPlaygroundSessions,
   connectPlaygroundServer,
@@ -207,6 +213,9 @@ export default function Playground() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiIntent, setAiIntent] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+
+  // Active tab in the right-hand pane: tools | tests | agent | trace | stats
+  const [activeTab, setActiveTab] = useState("tools");
 
   // Connect form
   const [form, setForm] = useState({
@@ -775,8 +784,47 @@ export default function Playground() {
               />
             )}
 
-            {/* Tool search */}
-            {tools.length > 4 && (
+            {/* Tabs — surface richer workflows beyond one-off tool execution.
+                  Each tab is a self-contained component so the shared Playground
+                  state (session, selected tool, tools list) stays in this page. */}
+            <Tabs
+              value={activeTab}
+              onChange={(_, v) => setActiveTab(v)}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{ borderBottom: 1, borderColor: "divider", minHeight: 36 }}
+            >
+              <Tab value="tools" label="Tools" sx={{ minHeight: 36, textTransform: "none" }} />
+              <Tab value="tests" label="Tests" sx={{ minHeight: 36, textTransform: "none" }} />
+              <Tab value="agent" label="Agent Chat" sx={{ minHeight: 36, textTransform: "none" }} />
+              <Tab value="trace" label="Trace" sx={{ minHeight: 36, textTransform: "none" }} />
+              <Tab value="stats" label="Stats" sx={{ minHeight: 36, textTransform: "none" }} />
+            </Tabs>
+
+            {activeTab !== "tools" && (
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                {activeTab === "tests" && (
+                  <TestCasesPanel
+                    sessionId={activeSession.id}
+                    toolName={selectedTool}
+                    toolArgs={toolArgs}
+                    onToast={toast}
+                  />
+                )}
+                {activeTab === "agent" && (
+                  <AgentPanel sessionId={activeSession.id} onToast={toast} />
+                )}
+                {activeTab === "trace" && (
+                  <TracePanel sessionId={activeSession.id} onToast={toast} />
+                )}
+                {activeTab === "stats" && (
+                  <StatsPanel sessionId={activeSession.id} onToast={toast} />
+                )}
+              </Paper>
+            )}
+
+            {/* Tool search — only on the Tools tab */}
+            {activeTab === "tools" && tools.length > 4 && (
               <TextField
                 size="small"
                 placeholder="Filter tools by name or description"
@@ -794,6 +842,7 @@ export default function Playground() {
             )}
 
             {/* Tool chips */}
+            {activeTab === "tools" && (
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
               {filteredTools.map((t, i) => {
                 const name = t.name || t;
@@ -821,9 +870,10 @@ export default function Playground() {
                 </Typography>
               )}
             </Box>
+            )}
 
             {/* Selected tool execution */}
-            {selectedTool && selectedToolDef && (
+            {activeTab === "tools" && selectedTool && selectedToolDef && (
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <Stack spacing={1.5}>
                   <Box>
@@ -1115,7 +1165,7 @@ export default function Playground() {
             )}
 
             {/* Execution History */}
-            {history.length > 0 && (
+            {activeTab === "tools" && history.length > 0 && (
               <Paper variant="outlined" sx={{ overflow: "hidden" }}>
                 <Box
                   sx={{
