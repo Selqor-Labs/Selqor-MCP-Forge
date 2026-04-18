@@ -753,6 +753,15 @@ class PlaygroundSessionRepository:
         stmt = select(PlaygroundSession).where(PlaygroundSession.id == session_id)
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def get_active_by_integration_id(self, integration_id: str) -> PlaygroundSession | None:
+        """Return the most-recent session for an integration, or None."""
+        stmt = (
+            select(PlaygroundSession)
+            .where(PlaygroundSession.integration_id == integration_id)
+            .order_by(PlaygroundSession.connected_at.desc())
+        )
+        return self.session.execute(stmt).scalars().first()
+
     def create(self, **kwargs) -> PlaygroundSession:
         model = PlaygroundSession(**kwargs)
         self.session.add(model)

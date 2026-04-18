@@ -569,6 +569,7 @@ class PlaygroundSession(Base):
 
     id = Column(String, primary_key=True)
     org_id = Column(String, ForeignKey("sf_organizations.id"), nullable=True)
+    integration_id = Column(String, nullable=True, index=True)
     name = Column(String, nullable=False)
     transport = Column(String, nullable=False)
     status = Column(String, nullable=False, default="disconnected")

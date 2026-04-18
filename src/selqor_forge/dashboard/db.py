@@ -209,6 +209,20 @@ def _apply_sqlite_migrations(engine, logger) -> None:
                         ))
                     logger.info("Added column %s to sf_playground_executions", col_name)
 
+        # Playground sessions: add integration_id so we can dedupe sessions per integration
+        if "sf_playground_sessions" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("sf_playground_sessions")}
+            if "integration_id" not in existing:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE sf_playground_sessions ADD COLUMN integration_id TEXT"
+                    ))
+                    conn.execute(text(
+                        "CREATE INDEX IF NOT EXISTS ix_sf_playground_sessions_integration_id "
+                        "ON sf_playground_sessions (integration_id)"
+                    ))
+                logger.info("Added column integration_id to sf_playground_sessions")
+
     except Exception as e:
         logger.debug("SQLite migration skipped: %s", e)
 
@@ -220,6 +234,7 @@ def _apply_column_migrations(engine, logger) -> None:
         ("sf_integrations", "agent_prompt", "TEXT"),
         ("sf_playground_executions", "raw_rpc", "JSONB"),
         ("sf_playground_executions", "origin", "TEXT DEFAULT 'manual'"),
+        ("sf_playground_sessions", "integration_id", "TEXT"),
     ]
     with engine.begin() as conn:
         for table, column, col_type in migrations:

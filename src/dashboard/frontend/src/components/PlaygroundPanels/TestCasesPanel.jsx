@@ -304,7 +304,7 @@ export default function TestCasesPanel({ sessionId, toolName, toolArgs, onToast 
       )}
 
       {/* Editor dialog */}
-      <Dialog open={editorOpen} onClose={() => setEditorOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={editorOpen} onClose={() => setEditorOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>{editing ? "Edit test case" : "New test case"}</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5} sx={{ pt: 1 }}>
@@ -366,11 +366,15 @@ export default function TestCasesPanel({ sessionId, toolName, toolArgs, onToast 
                               }
                               updateAssertion(i, { value: parsed });
                             }}
-                            sx={{ flex: 1 }}
-                            helperText={spec.hint || ""}
+                            sx={{ flex: 1, minWidth: 180 }}
                           />
                         )}
-                        <IconButton size="small" color="error" onClick={() => removeAssertion(i)}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => removeAssertion(i)}
+                          sx={{ flexShrink: 0, alignSelf: "center" }}
+                        >
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
                       </Stack>

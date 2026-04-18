@@ -62,6 +62,8 @@ class ConnectRequest(BaseModel):
     server_url: str | None = None
     # Environment variables to pass
     env_vars: dict[str, str] | None = None
+    # Optional integration id used to reuse an existing session instead of creating a duplicate
+    integration_id: str | None = None
 
 
 class ExecuteToolRequest(BaseModel):
@@ -389,6 +391,7 @@ async def auto_connect_integration(ctx: Ctx, integration_id: str) -> dict:
         server_url=connection.get("server_url"),
         command=connection.get("command"),
         working_dir=connection.get("working_dir"),
+        integration_id=integration_id,
     )
 
     return await connect_server(ctx, connect_body)
@@ -396,7 +399,50 @@ async def auto_connect_integration(ctx: Ctx, integration_id: str) -> dict:
 
 @router.post("/connect")
 async def connect_server(ctx: Ctx, body: ConnectRequest) -> dict:
-    """Connect to an MCP server via stdio or HTTP and enumerate tools."""
+    """Connect to an MCP server via stdio or HTTP and enumerate tools.
+
+    If ``integration_id`` is provided and a session already exists for it, reuse
+    that session when its transport is live; otherwise drop the stale row and
+    create a fresh session. This prevents duplicate "petstore"-style rows from
+    piling up every time the user clicks Connect.
+    """
+    # Reuse a live session for this integration if one exists
+    if body.integration_id:
+        db_session = ctx.db_session_factory()
+        try:
+            repo = PlaygroundSessionRepository(db_session)
+            existing = repo.get_active_by_integration_id(body.integration_id)
+        finally:
+            db_session.close()
+        if existing:
+            in_memory = _sessions.get(existing.id)
+            proc = _processes.get(existing.id)
+            stdio_alive = existing.transport == "stdio" and proc is not None and proc.poll() is None
+            http_alive = existing.transport == "http" and in_memory is not None
+            if in_memory and (stdio_alive or http_alive):
+                return {
+                    "id": existing.id,
+                    "status": "connected",
+                    "transport": existing.transport,
+                    "name": in_memory.get("name") or existing.name,
+                    "server_info": in_memory.get("server_info", existing.server_info or {}),
+                    "tools": in_memory.get("tools", existing.tools or []),
+                    "tools_count": len(in_memory.get("tools", existing.tools or [])),
+                    "connected_at": in_memory.get("connected_at", existing.connected_at),
+                    "reused": True,
+                }
+            # Stale session — drop in-memory state and DB row, then fall through to create a new one
+            _sessions.pop(existing.id, None)
+            _processes.pop(existing.id, None)
+            _sse_tasks.pop(existing.id, None)
+            _sse_clients.pop(existing.id, None)
+            _sse_queues.pop(existing.id, None)
+            db_session = ctx.db_session_factory()
+            try:
+                PlaygroundSessionRepository(db_session).delete(existing.id)
+            finally:
+                db_session.close()
+
     session_id = str(uuid.uuid4())
 
     if body.transport == "stdio":
@@ -417,6 +463,7 @@ async def connect_server(ctx: Ctx, body: ConnectRequest) -> dict:
         sess_data = _sessions.get(session_id, {})
         repo.create(
             id=session_id,
+            integration_id=body.integration_id,
             name=sess_data.get("name", body.name or ""),
             transport=body.transport,
             status="connected",
