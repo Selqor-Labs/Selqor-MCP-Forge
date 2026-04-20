@@ -37,6 +37,7 @@ dev = [
     "httpx",
     "mypy>=1.11",
     "ruff>=0.8.0",
+    "mcp>=1.0.0",
 ]
 
 [project.scripts]

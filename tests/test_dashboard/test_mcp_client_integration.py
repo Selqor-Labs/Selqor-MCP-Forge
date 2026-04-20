@@ -29,6 +29,11 @@ from pathlib import Path
 
 import pytest
 
+# The petstore fixtures (tests/fixtures/mcp/petstore_*.py) import the `mcp`
+# server SDK. Skip the integration suite cleanly if it is not installed so
+# environments without the dev extras don't see spurious subprocess errors.
+pytest.importorskip("mcp")
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "mcp"
 sys.path.insert(0, str(REPO_ROOT / "src"))
