@@ -1,10 +1,12 @@
-"""Minimal petstore MCP server (HTTP+SSE transport).
+"""Petstore MCP server over HTTP+SSE â€” internal test fixture.
 
-Local dev server for exercising the Forge playground. Serves ``/sse`` and
-``/messages/`` per the MCP HTTP+SSE transport spec.
+Purpose-built target for regression-testing the HttpSseMCPClient. Boot on any
+free port; the test harness in ``test_mcp_client_integration.py`` manages
+lifecycle.
 
-Run:
-    python tools/petstore_mcp_server.py --port 3336
+Run directly (usually for ad-hoc debugging)::
+
+    python tests/fixtures/mcp/petstore_http.py --port 3336
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ _PETS: dict[int, dict[str, Any]] = {
 _next_id = itertools.count(4)
 
 
-server = Server("petstore")
+server = Server("petstore-http")
 
 
 @server.list_tools()
@@ -37,7 +39,7 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="list_pets",
-            description="List all pets, optionally filtered by status (available, pending, sold).",
+            description="List all pets, optionally filtered by status.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -50,7 +52,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_pet",
-            description="Fetch a single pet by its numeric id.",
+            description="Fetch a single pet by id.",
             inputSchema={
                 "type": "object",
                 "properties": {"id": {"type": "integer"}},
@@ -59,7 +61,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="create_pet",
-            description="Create a new pet. Returns the created pet including its assigned id.",
+            description="Create a new pet. Returns the created pet with its id.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -76,7 +78,7 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="delete_pet",
-            description="Delete a pet by id. Returns ok=true if the pet existed.",
+            description="Delete a pet by id. Returns ok=true if it existed.",
             inputSchema={
                 "type": "object",
                 "properties": {"id": {"type": "integer"}},
@@ -96,15 +98,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         if status:
             pets = [p for p in pets if p["status"] == status]
         payload = {"pets": pets, "total": len(pets)}
-
     elif name == "get_pet":
         pet_id = int(arguments["id"])
         pet = _PETS.get(pet_id)
-        if pet is None:
-            payload = {"error": f"pet {pet_id} not found"}
-        else:
-            payload = pet
-
+        payload = pet if pet is not None else {"error": f"pet {pet_id} not found"}
     elif name == "create_pet":
         pet_id = next(_next_id)
         pet = {
@@ -115,12 +112,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
         }
         _PETS[pet_id] = pet
         payload = pet
-
     elif name == "delete_pet":
         pet_id = int(arguments["id"])
         existed = _PETS.pop(pet_id, None) is not None
         payload = {"ok": existed, "id": pet_id}
-
     else:
         payload = {"error": f"unknown tool: {name}"}
 
@@ -155,7 +150,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=3336)
     args = parser.parse_args()
 
-    uvicorn.run(build_app(), host=args.host, port=args.port, log_level="info")
+    uvicorn.run(build_app(), host=args.host, port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":

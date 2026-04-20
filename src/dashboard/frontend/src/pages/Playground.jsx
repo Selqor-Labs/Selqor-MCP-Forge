@@ -11,6 +11,7 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import TextField from "@mui/material/TextField";
+import Autocomplete from "@mui/material/Autocomplete";
 import InputAdornment from "@mui/material/InputAdornment";
 import CircularProgress from "@mui/material/CircularProgress";
 import LogoLoader from "../components/LogoLoader";
@@ -210,7 +211,6 @@ export default function Playground() {
   const [toolArgs, setToolArgs] = useState("{}");
   const [executing, setExecuting] = useState(false);
   const [execResult, setExecResult] = useState(null);
-  const [toolSearch, setToolSearch] = useState("");
 
   // AI-fill dialog state
   const [aiOpen, setAiOpen] = useState(false);
@@ -253,16 +253,6 @@ export default function Playground() {
   const schemaFields = useMemo(() => summarizeSchema(schema), [schema]);
   const requiredFields = schemaFields.filter((f) => f.required);
   const optionalFields = schemaFields.filter((f) => !f.required);
-
-  const filteredTools = useMemo(() => {
-    if (!toolSearch.trim()) return tools;
-    const q = toolSearch.toLowerCase();
-    return tools.filter((t) => {
-      const name = (t.name || t).toLowerCase();
-      const desc = (t.description || "").toLowerCase();
-      return name.includes(q) || desc.includes(q);
-    });
-  }, [tools, toolSearch]);
 
   async function loadSessions() {
     try {
@@ -338,7 +328,6 @@ export default function Playground() {
     setExecResult(null);
     setSelectedTool(null);
     setToolArgs("{}");
-    setToolSearch("");
     try {
       const [t, h] = await Promise.all([
         fetchPlaygroundTools(id),
@@ -925,53 +914,80 @@ export default function Playground() {
               </Paper>
             )}
 
-            {/* Tool search — only on the Tools tab */}
-            {activeTab === "tools" && tools.length > 4 && (
-              <TextField
-                size="small"
-                placeholder="Filter tools by name or description"
-                value={toolSearch}
-                onChange={(e) => setToolSearch(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ maxWidth: 360 }}
-              />
-            )}
-
-            {/* Tool chips */}
+            {/* Tool picker — searchable dropdown so the Tools tab stays
+                usable as MCPs grow from a handful to 50+ tools. */}
             {activeTab === "tools" && (
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-              {filteredTools.map((t, i) => {
-                const name = t.name || t;
-                return (
-                  <Tooltip
-                    key={i}
-                    title={t.description || name}
-                    placement="top"
-                  >
-                    <Chip
-                      label={name}
-                      clickable
-                      variant={selectedTool === name ? "filled" : "outlined"}
-                      color={selectedTool === name ? "primary" : "default"}
-                      onClick={() => pickTool(t)}
-                    />
-                  </Tooltip>
-                );
-              })}
-              {filteredTools.length === 0 && (
+              tools.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  {tools.length === 0
-                    ? "No tools available for this session."
-                    : "No tools match your search."}
+                  No tools available for this session.
                 </Typography>
-              )}
-            </Box>
+              ) : (
+                <Autocomplete
+                  size="small"
+                  options={tools}
+                  value={selectedToolDef}
+                  onChange={(_evt, option) => {
+                    if (option) pickTool(option);
+                    else setSelectedTool(null);
+                  }}
+                  getOptionLabel={(option) =>
+                    typeof option === "string" ? option : option?.name || ""
+                  }
+                  isOptionEqualToValue={(a, b) =>
+                    (a?.name || a) === (b?.name || b)
+                  }
+                  renderOption={(props, option) => {
+                    const { key, ...rest } = props;
+                    return (
+                      <li key={key} {...rest}>
+                        <Box sx={{ display: "flex", flexDirection: "column" }}>
+                          <Typography
+                            variant="body2"
+                            fontWeight={600}
+                            sx={{ fontFamily: "monospace" }}
+                          >
+                            {option.name}
+                          </Typography>
+                          {option.description && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                maxWidth: 560,
+                              }}
+                            >
+                              {option.description}
+                            </Typography>
+                          )}
+                        </Box>
+                      </li>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={`Search ${tools.length} tool${
+                        tools.length === 1 ? "" : "s"
+                      } by name or description`}
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <>
+                            <InputAdornment position="start">
+                              <SearchIcon fontSize="small" />
+                            </InputAdornment>
+                            {params.InputProps.startAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                  sx={{ maxWidth: 560 }}
+                />
+              )
             )}
 
             {/* Selected tool execution */}

@@ -17,6 +17,13 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from selqor_forge.dashboard.mcp_client import (
+    HttpSseMCPClient,
+    MCPClient,
+    MCPDisconnectedError,
+    MCPError,
+    StdioMCPClient,
+)
 from selqor_forge.dashboard.middleware import Ctx
 from selqor_forge.dashboard.playground_assertions import (
     evaluate_all,
@@ -37,13 +44,12 @@ router = APIRouter(prefix="/playground", tags=["playground"])
 # In-memory session store â€” tracks connected MCP servers
 # ---------------------------------------------------------------------------
 
+# Session metadata (name, tools, server_info, executions history, etc.) lives
+# in ``_sessions``. The live transport (subprocess / HTTP+SSE connection) lives
+# in ``_clients`` keyed by the same session id. Both entries are created and
+# torn down together by connect / disconnect handlers.
 _sessions: dict[str, dict] = {}
-_processes: dict[str, subprocess.Popen] = {}
-
-# SSE transport state (for HTTP MCP servers using SSE protocol)
-_sse_tasks: dict[str, "asyncio.Task"] = {}
-_sse_clients: dict[str, Any] = {}  # httpx.AsyncClient
-_sse_queues: dict[str, "asyncio.Queue"] = {}
+_clients: dict[str, MCPClient] = {}
 
 
 def _model_to_dict(model) -> dict:
@@ -182,23 +188,94 @@ async def start_deployment_server(ctx: Ctx, integration_id: str) -> dict:
                         env[k.strip()] = v.strip()
                 break  # Use first file found
 
+        # Mirror what the deploy command string does: ensure .env exists (so
+        # the server picks up FORGE_* even if the caller didn't inherit them
+        # through process env) and install node_modules on first run.
+        if server_path_obj is not None:
+            env_dotfile = server_path_obj / ".env"
+            env_generated = server_path_obj / ".env.generated"
+            if env_generated.exists() and not env_dotfile.exists():
+                try:
+                    env_dotfile.write_text(
+                        env_generated.read_text(encoding="utf-8"),
+                        encoding="utf-8",
+                    )
+                except OSError as exc:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to materialise .env for server: {exc}",
+                    )
+
+            # On Windows, ``npm`` is actually ``npm.cmd``. We rely on
+            # ``shell=True`` here because npm's shim behavior differs per
+            # platform â€” the server_path is system-controlled (not
+            # user-supplied) so there's no injection risk.
+            needs_install = not (server_path_obj / "node_modules").exists()
+            if needs_install:
+                try:
+                    install_proc = await asyncio.create_subprocess_shell(
+                        "npm install",
+                        cwd=str(server_path_obj),
+                        env=env,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+                    # npm install on Windows with a fresh cache can legitimately
+                    # take over a minute; give it headroom.
+                    try:
+                        stdout_b, stderr_b = await asyncio.wait_for(
+                            install_proc.communicate(), timeout=180.0
+                        )
+                    except asyncio.TimeoutError:
+                        install_proc.kill()
+                        raise HTTPException(
+                            status_code=504,
+                            detail="npm install timed out after 180s for the generated server",
+                        )
+                    if install_proc.returncode != 0:
+                        tail = (stderr_b or b"").decode("utf-8", errors="replace")[-800:]
+                        raise HTTPException(
+                            status_code=500,
+                            detail=(
+                                f"npm install failed (exit={install_proc.returncode}): "
+                                f"{tail}"
+                            ),
+                        )
+                except HTTPException:
+                    raise
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"npm install crashed: {exc}",
+                    )
+
         # Use npm run dev directly in the server directory
         cmd_parts = ["npm", "run", "dev"]
 
         try:
-            proc = subprocess.Popen(
-                cmd_parts,
+            # Windows: npm is npm.cmd and asyncio.create_subprocess_exec often
+            # fails to resolve shims, so keep the sync Popen here. This is the
+            # deployment-server lifecycle (separate from the MCP client I/O
+            # layer) so the sync subprocess is not a correctness hazard â€”
+            # we don't read stdin/stdout of this process, we just keep a
+            # handle to stop it later.
+            popen_kwargs: dict[str, Any] = dict(
                 cwd=server_path,
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 bufsize=0,
             )
+            if os.name == "nt":
+                popen_kwargs["shell"] = True
+                proc = subprocess.Popen("npm run dev", **popen_kwargs)
+            else:
+                proc = subprocess.Popen(cmd_parts, **popen_kwargs)
             _deployment_processes[integration_id] = proc
             await asyncio.sleep(2)  # Give server time to start
 
             if proc.poll() is not None:
-                stderr = proc.stderr.read().decode("utf-8", errors="replace")[:500] if proc.stderr else ""
+                stderr = proc.stderr.read().decode("utf-8", errors="replace")[:800] if proc.stderr else ""
                 raise HTTPException(status_code=500, detail=f"Server failed to start: {stderr}")
 
             return {
@@ -206,6 +283,8 @@ async def start_deployment_server(ctx: Ctx, integration_id: str) -> dict:
                 "integration_id": integration_id,
                 "message": "MCP server started successfully",
             }
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to start server: {str(e)}")
 
@@ -334,14 +413,14 @@ async def list_sessions(ctx: Ctx) -> dict:
         db_sessions = repo.list_all()
         sessions_list = []
         for s in db_sessions:
-            # Merge live status from _processes
+            # Merge live status from _clients: a row persisted as "connected"
+            # is only still connected if the in-memory client is alive.
             live_status = s.status
-            proc = _processes.get(s.id)
-            if s.transport == "stdio":
-                if proc and proc.poll() is None:
-                    live_status = "connected"
-                elif s.status == "connected":
-                    live_status = "disconnected"
+            client = _clients.get(s.id)
+            if client is not None and client.is_alive():
+                live_status = "connected"
+            elif s.status == "connected":
+                live_status = "disconnected"
             tools = s.tools or []
             sessions_list.append({
                 "id": s.id,
@@ -416,10 +495,8 @@ async def connect_server(ctx: Ctx, body: ConnectRequest) -> dict:
             db_session.close()
         if existing:
             in_memory = _sessions.get(existing.id)
-            proc = _processes.get(existing.id)
-            stdio_alive = existing.transport == "stdio" and proc is not None and proc.poll() is None
-            http_alive = existing.transport == "http" and in_memory is not None
-            if in_memory and (stdio_alive or http_alive):
+            client = _clients.get(existing.id)
+            if in_memory and client is not None and client.is_alive():
                 return {
                     "id": existing.id,
                     "status": "connected",
@@ -431,12 +508,15 @@ async def connect_server(ctx: Ctx, body: ConnectRequest) -> dict:
                     "connected_at": in_memory.get("connected_at", existing.connected_at),
                     "reused": True,
                 }
-            # Stale session — drop in-memory state and DB row, then fall through to create a new one
+            # Stale session â€” close the dead client, drop in-memory state and
+            # DB row, then fall through to create a new one.
             _sessions.pop(existing.id, None)
-            _processes.pop(existing.id, None)
-            _sse_tasks.pop(existing.id, None)
-            _sse_clients.pop(existing.id, None)
-            _sse_queues.pop(existing.id, None)
+            stale_client = _clients.pop(existing.id, None)
+            if stale_client is not None:
+                try:
+                    await stale_client.close()
+                except Exception:  # noqa: BLE001
+                    pass
             db_session = ctx.db_session_factory()
             try:
                 PlaygroundSessionRepository(db_session).delete(existing.id)
@@ -495,29 +575,16 @@ async def disconnect_session(ctx: Ctx, session_id: str) -> dict:
     finally:
         db_session.close()
 
-    # Kill subprocess if stdio
-    proc = _processes.pop(session_id, None)
-    if proc:
+    # Tear down the live transport (subprocess or HTTP+SSE). The client's
+    # own close() is responsible for cancelling reader tasks, waiting on the
+    # subprocess with a SIGKILL fallback, closing the HTTP client, and
+    # failing every pending future so concurrent callers don't hang.
+    client = _clients.pop(session_id, None)
+    if client is not None:
         try:
-            proc.terminate()
-            proc.wait(timeout=5)
-        except Exception:
-            try:
-                proc.kill()
-            except Exception:
-                pass
-
-    # Cancel SSE background task and close client if HTTP
-    sse_task = _sse_tasks.pop(session_id, None)
-    if sse_task:
-        sse_task.cancel()
-    sse_client = _sse_clients.pop(session_id, None)
-    if sse_client:
-        try:
-            await sse_client.aclose()
-        except Exception:
+            await client.close()
+        except Exception:  # noqa: BLE001
             pass
-    _sse_queues.pop(session_id, None)
 
     return {"message": "Session disconnected", "id": session_id}
 
@@ -563,8 +630,14 @@ async def _run_tool(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session.get("status") != "connected":
-        raise HTTPException(status_code=400, detail="Session is not connected")
+    client = _clients.get(session_id)
+    if client is None or not client.is_alive():
+        # Keep the in-memory status in sync so the UI reflects reality.
+        session["status"] = "disconnected"
+        raise HTTPException(
+            status_code=400,
+            detail="Session is not connected. Reconnect to continue testing.",
+        )
 
     tools = session.get("tools", [])
     tool = next((t for t in tools if t.get("name") == tool_name), None)
@@ -582,10 +655,11 @@ async def _run_tool(
     }
 
     try:
-        if session["transport"] == "stdio":
-            result = await _execute_stdio_tool(session_id, tool_name, arguments)
-        else:
-            result = await _execute_http_tool(session_id, session, tool_name, arguments)
+        result = await client.call(
+            "tools/call",
+            {"name": tool_name, "arguments": arguments},
+            timeout=30.0,
+        )
 
         elapsed = round((time.time() - start_time) * 1000, 1)
         executed_at = datetime.utcnow().isoformat() + "Z"
@@ -641,6 +715,21 @@ async def _run_tool(
         executed_at = datetime.utcnow().isoformat() + "Z"
         exec_id = str(uuid.uuid4())
         raw_rpc["response"] = {"jsonrpc": "2.0", "error": {"message": str(e)}}
+
+        # If the transport died under us, reflect that in the session status
+        # so subsequent calls short-circuit cleanly and the UI can prompt a
+        # reconnect instead of issuing more doomed requests.
+        if isinstance(e, MCPDisconnectedError) or not client.is_alive():
+            session["status"] = "disconnected"
+            db_sess_update = ctx.db_session_factory()
+            try:
+                PlaygroundSessionRepository(db_sess_update).update(
+                    session_id, status="disconnected"
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            finally:
+                db_sess_update.close()
 
         execution_record = {
             "id": exec_id,
@@ -944,35 +1033,27 @@ async def health_check(ctx: Ctx, session_id: str) -> dict:
         finally:
             db_session.close()
 
-    if session.get("transport") == "stdio":
-        proc = _processes.get(session_id)
-        if not proc or proc.poll() is not None:
-            # Update status in memory and DB
-            if isinstance(session, dict) and session_id in _sessions:
-                session["status"] = "disconnected"
-            db_session = ctx.db_session_factory()
-            try:
-                PlaygroundSessionRepository(db_session).update(session_id, status="disconnected")
-            finally:
-                db_session.close()
-            return {"healthy": False, "status": "disconnected", "reason": "Process exited"}
-        return {"healthy": True, "status": "connected"}
-    else:
-        # HTTP: ping the server
+    client = _clients.get(session_id)
+    if client is None or not client.is_alive():
+        if isinstance(session, dict) and session_id in _sessions:
+            session["status"] = "disconnected"
+        db_session = ctx.db_session_factory()
         try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.get(session.get("server_url", "").rstrip("/"))
-                return {"healthy": resp.status_code < 500, "status": "connected", "http_status": resp.status_code}
-        except Exception as e:
-            if isinstance(session, dict) and session_id in _sessions:
-                session["status"] = "disconnected"
-            db_session = ctx.db_session_factory()
-            try:
-                PlaygroundSessionRepository(db_session).update(session_id, status="disconnected")
-            finally:
-                db_session.close()
-            return {"healthy": False, "status": "disconnected", "reason": str(e)}
+            PlaygroundSessionRepository(db_session).update(session_id, status="disconnected")
+        finally:
+            db_session.close()
+        reason = "Transport is down."
+        if client is not None:
+            # Surface the close_reason when the client knows why it died.
+            close_reason = getattr(client, "_close_reason", None)
+            if close_reason:
+                reason = close_reason
+        return {"healthy": False, "status": "disconnected", "reason": reason}
+
+    # Transport looks alive locally. For stdio that's enough; for HTTP+SSE we
+    # additionally ping the server via the MCP ``ping`` RPC if the server
+    # advertises it, otherwise we trust the SSE stream's liveness.
+    return {"healthy": True, "status": "connected", "transport": session.get("transport")}
 
 
 # ---------------------------------------------------------------------------
@@ -1643,76 +1724,55 @@ def _safe_json(text: Any) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# Internal helpers â€” stdio transport
+# Transport connect helpers â€” thin wrappers around MCPClient implementations
 # ---------------------------------------------------------------------------
 
+
 async def _connect_stdio(session_id: str, body: ConnectRequest, ctx) -> dict:
-    """Connect to an MCP server via stdio subprocess using JSON-RPC."""
+    """Launch a stdio MCP server as a child process and complete the MCP handshake."""
+    import os
     import shlex
 
-    cmd_parts = shlex.split(body.command)
-    working_dir = body.working_dir or "."
+    cmd_parts = shlex.split(body.command or "")
+    if not cmd_parts:
+        raise HTTPException(status_code=400, detail="Command is empty after shell splitting.")
 
-    env = None
+    working_dir = body.working_dir or None
+    env: dict[str, str] | None = None
     if body.env_vars:
-        import os
         env = {**os.environ, **body.env_vars}
 
+    client = StdioMCPClient(
+        command=body.command,
+        working_dir=working_dir,
+        env=env,
+    )
+
     try:
-        proc = subprocess.Popen(
-            cmd_parts,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=working_dir,
-            env=env,
-            bufsize=0,
-        )
-        _processes[session_id] = proc
-    except FileNotFoundError:
-        raise HTTPException(status_code=400, detail=f"Command not found: {cmd_parts[0]}. Ensure the server is built and the command is correct.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start process: {e}")
+        server_info = await client.connect(init_timeout=10.0)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except MCPError as exc:
+        await client.close()
+        raise HTTPException(status_code=400, detail=f"MCP initialization failed: {exc}")
+    except (ConnectionError, MCPDisconnectedError) as exc:
+        await client.close()
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        await client.close()
+        raise HTTPException(status_code=500, detail=f"Failed to start MCP server: {exc}")
 
-    # Give the process a moment to start
-    await asyncio.sleep(0.5)
-
-    if proc.poll() is not None:
-        stderr_output = ""
-        try:
-            stderr_output = proc.stderr.read().decode("utf-8", errors="replace")[:500]
-        except Exception:
-            pass
-        _processes.pop(session_id, None)
-        raise HTTPException(
-            status_code=400,
-            detail=f"Server process exited immediately. Stderr: {stderr_output}" if stderr_output else "Server process exited immediately. Check that the command and working directory are correct.",
-        )
-
-    # Send MCP initialize request
     try:
-        init_result = await _send_jsonrpc(proc, "initialize", {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "selqor-forge-playground", "version": "0.1.0"},
-        }, timeout=10)
-
-        # Send initialized notification
-        _send_notification(proc, "notifications/initialized", {})
-
-        server_info = init_result.get("result", {}).get("serverInfo", {})
-
-    except Exception as e:
-        proc.terminate()
-        _processes.pop(session_id, None)
-        raise HTTPException(status_code=400, detail=f"MCP initialization failed: {e}. Is this a valid MCP server?")
-
-    # List tools
-    try:
-        tools_result = await _send_jsonrpc(proc, "tools/list", {}, timeout=10)
-        tools = tools_result.get("result", {}).get("tools", [])
-    except Exception:
+        tools = await client.list_tools(timeout=10.0)
+    except Exception as exc:  # noqa: BLE001
+        # Non-fatal: some servers expose no tools or delay the tools/list
+        # response. Keep the session connected so the user can still use it.
         tools = []
+        logger_msg = f"tools/list failed for session {session_id}: {exc}"
+        import logging
+        logging.getLogger(__name__).warning(logger_msg)
+
+    _clients[session_id] = client
 
     session = {
         "name": body.name or f"stdio-{cmd_parts[0]}",
@@ -1724,7 +1784,6 @@ async def _connect_stdio(session_id: str, body: ConnectRequest, ctx) -> dict:
         "command": body.command,
         "working_dir": body.working_dir,
         "executions": [],
-        "_msg_id": 3,  # next JSON-RPC message ID (1=init, 2=tools/list)
     }
     _sessions[session_id] = session
 
@@ -1741,179 +1800,34 @@ async def _connect_stdio(session_id: str, body: ConnectRequest, ctx) -> dict:
 
 
 async def _connect_http(session_id: str, body: ConnectRequest, ctx) -> dict:
-    """Connect to an MCP server using SSE transport (MCP HTTP+SSE protocol).
+    """Connect to an MCP server using HTTP+SSE transport and complete the handshake."""
+    base_url = (body.server_url or "").rstrip("/")
+    if not base_url:
+        raise HTTPException(status_code=400, detail="server_url is required for HTTP transport")
 
-    Flow:
-    1. GET {base_url}/sse  â†’ server sends ``event: endpoint\\ndata: /messages?sessionId=XXX``
-    2. POST {base_url}/messages?sessionId=XXX  â†’ send JSON-RPC requests
-    3. SSE stream receives JSON-RPC responses as ``event: message\\ndata: {...}``
-    """
-    import httpx
-
-    base_url = body.server_url.rstrip("/")
-    sse_url = f"{base_url}/sse"
-
-    # Queue used to pass SSE events from the background reader to the caller
-    response_queue: asyncio.Queue = asyncio.Queue()
-
-    # Persistent async client â€” kept alive for the lifetime of the session
-    sse_client = httpx.AsyncClient(timeout=httpx.Timeout(None, connect=10.0))
-
-    async def _sse_reader():
-        """Background task: read the SSE stream and enqueue events."""
-        try:
-            async with sse_client.stream(
-                "GET", sse_url, headers={"Accept": "text/event-stream"}
-            ) as resp:
-                if resp.status_code != 200:
-                    await response_queue.put({"event": "error", "data": f"SSE returned {resp.status_code}"})
-                    return
-                event_type: str | None = None
-                data_lines: list[str] = []
-                async for raw_line in resp.aiter_lines():
-                    line = raw_line.strip()
-                    if line.startswith("event:"):
-                        event_type = line[6:].strip()
-                        data_lines = []
-                    elif line.startswith("data:"):
-                        data_lines.append(line[5:].strip())
-                    elif line == "":
-                        # Blank line = end of event block
-                        if event_type:
-                            await response_queue.put(
-                                {"event": event_type, "data": "\n".join(data_lines)}
-                            )
-                        event_type = None
-                        data_lines = []
-        except asyncio.CancelledError:
-            pass
-        except Exception as exc:
-            await response_queue.put({"event": "error", "data": str(exc)})
-
-    # Launch SSE reader as a background task
-    sse_task = asyncio.create_task(_sse_reader())
-
-    async def _wait_event(timeout: float = 10.0) -> dict:
-        """Wait for the next non-notification SSE event."""
-        deadline = asyncio.get_event_loop().time() + timeout
-        while True:
-            remaining = deadline - asyncio.get_event_loop().time()
-            if remaining <= 0:
-                raise asyncio.TimeoutError()
-            evt = await asyncio.wait_for(response_queue.get(), timeout=remaining)
-            if evt.get("event") == "error":
-                raise RuntimeError(evt.get("data", "SSE error"))
-            # Skip notifications (no id field) that arrive between our requests
-            if evt.get("event") == "message":
-                try:
-                    payload = json.loads(evt.get("data", "{}"))
-                    if "id" in payload:
-                        return evt
-                    # Notification â€” put back? No, just skip.
-                except Exception:
-                    pass
-                continue
-            return evt  # e.g. "endpoint"
-
-    # ------------------------------------------------------------------ #
-    # Step 1 â€” wait for the endpoint event
-    # ------------------------------------------------------------------ #
+    client = HttpSseMCPClient(server_url=base_url)
     try:
-        endpoint_evt = await asyncio.wait_for(response_queue.get(), timeout=10.0)
-    except asyncio.TimeoutError:
-        sse_task.cancel()
-        await sse_client.aclose()
-        raise HTTPException(
-            status_code=400,
-            detail=f"Timeout waiting for SSE endpoint from {sse_url}. Is the server running?",
-        )
-
-    if endpoint_evt.get("event") == "error":
-        sse_task.cancel()
-        await sse_client.aclose()
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot connect to MCP server at {base_url}: {endpoint_evt.get('data')}",
-        )
-
-    if endpoint_evt.get("event") != "endpoint":
-        sse_task.cancel()
-        await sse_client.aclose()
-        raise HTTPException(
-            status_code=400,
-            detail=f"Expected 'endpoint' SSE event, got '{endpoint_evt.get('event')}'",
-        )
-
-    endpoint_path = endpoint_evt.get("data", "")
-    if endpoint_path.startswith("/"):
-        messages_url = f"{base_url}{endpoint_path}"
-    else:
-        messages_url = endpoint_path
-
-    # ------------------------------------------------------------------ #
-    # Step 2 â€” initialize
-    # ------------------------------------------------------------------ #
-    tools: list[dict] = []
-    server_info: dict = {}
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as post_client:
-            await post_client.post(
-                messages_url,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "method": "initialize",
-                    "params": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {},
-                        "clientInfo": {"name": "selqor-forge-playground", "version": "0.1.0"},
-                    },
-                },
-                headers={"Content-Type": "application/json"},
-            )
-
-        # Wait for initialize response on SSE stream
-        init_evt = await _wait_event(timeout=10.0)
-        init_data = json.loads(init_evt.get("data", "{}"))
-        server_info = init_data.get("result", {}).get("serverInfo", {})
-
-        # Step 3 â€” send initialized notification (no response expected)
-        async with httpx.AsyncClient(timeout=5.0) as post_client:
-            await post_client.post(
-                messages_url,
-                json={"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}},
-                headers={"Content-Type": "application/json"},
-            )
-
-        # Step 4 â€” list tools
-        async with httpx.AsyncClient(timeout=10.0) as post_client:
-            await post_client.post(
-                messages_url,
-                json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
-                headers={"Content-Type": "application/json"},
-            )
-
-        tools_evt = await _wait_event(timeout=10.0)
-        tools_data = json.loads(tools_evt.get("data", "{}"))
-        tools = tools_data.get("result", {}).get("tools", [])
-
-    except httpx.ConnectError:
-        sse_task.cancel()
-        await sse_client.aclose()
-        raise HTTPException(status_code=400, detail=f"Cannot connect to {base_url}. Is the server running?")
-    except asyncio.TimeoutError:
-        sse_task.cancel()
-        await sse_client.aclose()
-        raise HTTPException(status_code=400, detail=f"MCP handshake timed out with {base_url}.")
-    except Exception as exc:
-        sse_task.cancel()
-        await sse_client.aclose()
+        server_info = await client.connect(init_timeout=10.0)
+    except MCPError as exc:
+        await client.close()
+        raise HTTPException(status_code=400, detail=f"MCP initialization failed: {exc}")
+    except (ConnectionError, MCPDisconnectedError) as exc:
+        await client.close()
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        await client.close()
         raise HTTPException(status_code=400, detail=f"MCP handshake failed: {exc}")
 
-    # Store SSE state for this session
-    _sse_tasks[session_id] = sse_task
-    _sse_clients[session_id] = sse_client
-    _sse_queues[session_id] = response_queue
+    try:
+        tools = await client.list_tools(timeout=10.0)
+    except Exception as exc:  # noqa: BLE001
+        tools = []
+        import logging
+        logging.getLogger(__name__).warning(
+            "tools/list failed for session %s: %s", session_id, exc
+        )
+
+    _clients[session_id] = client
 
     session = {
         "name": body.name or base_url,
@@ -1923,7 +1837,7 @@ async def _connect_http(session_id: str, body: ConnectRequest, ctx) -> dict:
         "server_info": server_info,
         "tools": tools,
         "server_url": base_url,
-        "mcp_messages_url": messages_url,
+        "mcp_messages_url": client.messages_url,
         "executions": [],
     }
     _sessions[session_id] = session
@@ -1938,166 +1852,3 @@ async def _connect_http(session_id: str, body: ConnectRequest, ctx) -> dict:
         "tools_count": len(tools),
         "connected_at": session["connected_at"],
     }
-
-
-# ---------------------------------------------------------------------------
-# JSON-RPC helpers for stdio
-# ---------------------------------------------------------------------------
-
-_MSG_ID_COUNTER = 0
-
-
-async def _send_jsonrpc(proc: subprocess.Popen, method: str, params: dict, timeout: float = 30) -> dict:
-    """Send a JSON-RPC request to the stdio process and await response."""
-    global _MSG_ID_COUNTER
-    _MSG_ID_COUNTER += 1
-    msg_id = _MSG_ID_COUNTER
-
-    message = json.dumps({"jsonrpc": "2.0", "id": msg_id, "method": method, "params": params})
-    content = f"Content-Length: {len(message)}\r\n\r\n{message}"
-
-    try:
-        proc.stdin.write(content.encode("utf-8"))
-        proc.stdin.flush()
-    except (BrokenPipeError, OSError) as e:
-        raise RuntimeError(f"Failed to write to server stdin: {e}")
-
-    # Read response with timeout
-    response = await asyncio.wait_for(
-        asyncio.get_event_loop().run_in_executor(None, lambda: _read_jsonrpc_response(proc)),
-        timeout=timeout,
-    )
-
-    if "error" in response:
-        err = response["error"]
-        raise RuntimeError(f"Server error: {err.get('message', 'Unknown error')} (code: {err.get('code', '?')})")
-
-    return response
-
-
-def _send_notification(proc: subprocess.Popen, method: str, params: dict) -> None:
-    """Send a JSON-RPC notification (no id, no response expected)."""
-    message = json.dumps({"jsonrpc": "2.0", "method": method, "params": params})
-    content = f"Content-Length: {len(message)}\r\n\r\n{message}"
-    try:
-        proc.stdin.write(content.encode("utf-8"))
-        proc.stdin.flush()
-    except Exception:
-        pass
-
-
-def _read_jsonrpc_response(proc: subprocess.Popen) -> dict:
-    """Read a JSON-RPC response from stdout using Content-Length headers."""
-    headers = {}
-    while True:
-        line = b""
-        while True:
-            ch = proc.stdout.read(1)
-            if not ch:
-                raise RuntimeError("Server closed stdout unexpectedly")
-            line += ch
-            if line.endswith(b"\r\n"):
-                break
-
-        line_str = line.decode("utf-8").strip()
-        if not line_str:
-            break
-        if ":" in line_str:
-            key, val = line_str.split(":", 1)
-            headers[key.strip().lower()] = val.strip()
-
-    content_length = int(headers.get("content-length", 0))
-    if content_length == 0:
-        raise RuntimeError("No Content-Length header in response")
-
-    body = b""
-    while len(body) < content_length:
-        chunk = proc.stdout.read(content_length - len(body))
-        if not chunk:
-            raise RuntimeError("Server closed stdout while reading body")
-        body += chunk
-
-    return json.loads(body.decode("utf-8"))
-
-
-async def _execute_stdio_tool(session_id: str, tool_name: str, arguments: dict) -> Any:
-    """Execute a tool via stdio JSON-RPC."""
-    proc = _processes.get(session_id)
-    if not proc or proc.poll() is not None:
-        session = _sessions.get(session_id)
-        if session:
-            session["status"] = "disconnected"
-        raise HTTPException(status_code=400, detail="Server process has exited. Reconnect to continue testing.")
-
-    result = await _send_jsonrpc(proc, "tools/call", {
-        "name": tool_name,
-        "arguments": arguments,
-    }, timeout=30)
-
-    return result.get("result", {})
-
-
-async def _execute_http_tool(session_id: str, session: dict, tool_name: str, arguments: dict) -> Any:
-    """Execute a tool via MCP SSE transport.
-
-    Sends a JSON-RPC ``tools/call`` request to ``/messages?sessionId=...`` and
-    reads the response from the persistent SSE stream.
-    """
-    import httpx
-
-    queue = _sse_queues.get(session_id)
-    messages_url = session.get("mcp_messages_url")
-
-    if not queue or not messages_url:
-        raise HTTPException(
-            status_code=400,
-            detail="SSE session state lost. Please disconnect and reconnect.",
-        )
-
-    msg_id = int(time.time() * 1000)
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
-                messages_url,
-                json={
-                    "jsonrpc": "2.0",
-                    "id": msg_id,
-                    "method": "tools/call",
-                    "params": {"name": tool_name, "arguments": arguments},
-                },
-                headers={"Content-Type": "application/json"},
-            )
-            if resp.status_code not in (200, 202):
-                raise RuntimeError(f"POST to MCP messages returned HTTP {resp.status_code}: {resp.text[:300]}")
-    except httpx.ConnectError:
-        session["status"] = "disconnected"
-        raise HTTPException(status_code=400, detail="Server is no longer reachable. It may have stopped.")
-
-    # Read the tool result from the SSE stream (responses come back over the event stream)
-    deadline = asyncio.get_event_loop().time() + 30.0
-    while True:
-        remaining = deadline - asyncio.get_event_loop().time()
-        if remaining <= 0:
-            raise HTTPException(status_code=400, detail="Tool execution timed out after 30 seconds.")
-        try:
-            evt = await asyncio.wait_for(queue.get(), timeout=remaining)
-        except asyncio.TimeoutError:
-            raise HTTPException(status_code=400, detail="Tool execution timed out after 30 seconds.")
-
-        if evt.get("event") == "error":
-            raise RuntimeError(evt.get("data", "SSE error during tool execution"))
-
-        if evt.get("event") == "message":
-            try:
-                data = json.loads(evt.get("data", "{}"))
-                # Match by id â€” skip notifications (which have no id)
-                if data.get("id") == msg_id:
-                    if "error" in data:
-                        err = data["error"]
-                        raise RuntimeError(
-                            f"Server error: {err.get('message', 'Unknown')} (code: {err.get('code', '?')})"
-                        )
-                    return data.get("result", {})
-            except (json.JSONDecodeError, KeyError):
-                continue
