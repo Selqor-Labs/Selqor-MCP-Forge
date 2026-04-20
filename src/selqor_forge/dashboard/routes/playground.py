@@ -613,6 +613,54 @@ async def list_tools(ctx: Ctx, session_id: str) -> dict:
         db_session.close()
 
 
+async def _execute_stdio_tool(
+    session_id: str,
+    tool_name: str,
+    arguments: dict,
+) -> dict:
+    """Execute a tool over the stdio MCPClient and return the raw MCP result.
+
+    Extracted as a standalone seam so tests can monkeypatch transport away
+    without spinning up a real subprocess.
+    """
+    client = _clients.get(session_id)
+    if client is None or not client.is_alive():
+        sess = _sessions.get(session_id)
+        if sess is not None:
+            sess["status"] = "disconnected"
+        raise HTTPException(
+            status_code=400,
+            detail="Session is not connected. Reconnect to continue testing.",
+        )
+    return await client.call(
+        "tools/call",
+        {"name": tool_name, "arguments": arguments},
+        timeout=30.0,
+    )
+
+
+async def _execute_http_tool(
+    session_id: str,
+    tool_name: str,
+    arguments: dict,
+) -> dict:
+    """Execute a tool over the HTTP+SSE MCPClient and return the raw MCP result."""
+    client = _clients.get(session_id)
+    if client is None or not client.is_alive():
+        sess = _sessions.get(session_id)
+        if sess is not None:
+            sess["status"] = "disconnected"
+        raise HTTPException(
+            status_code=400,
+            detail="Session is not connected. Reconnect to continue testing.",
+        )
+    return await client.call(
+        "tools/call",
+        {"name": tool_name, "arguments": arguments},
+        timeout=30.0,
+    )
+
+
 async def _run_tool(
     ctx,
     session_id: str,
@@ -630,20 +678,12 @@ async def _run_tool(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    client = _clients.get(session_id)
-    if client is None or not client.is_alive():
-        # Keep the in-memory status in sync so the UI reflects reality.
-        session["status"] = "disconnected"
-        raise HTTPException(
-            status_code=400,
-            detail="Session is not connected. Reconnect to continue testing.",
-        )
-
     tools = session.get("tools", [])
     tool = next((t for t in tools if t.get("name") == tool_name), None)
     if not tool:
         raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found on this server")
 
+    transport = session.get("transport", "stdio")
     start_time = time.time()
     raw_rpc = {
         "request": {
@@ -655,11 +695,10 @@ async def _run_tool(
     }
 
     try:
-        result = await client.call(
-            "tools/call",
-            {"name": tool_name, "arguments": arguments},
-            timeout=30.0,
-        )
+        if transport == "http":
+            result = await _execute_http_tool(session_id, tool_name, arguments)
+        else:
+            result = await _execute_stdio_tool(session_id, tool_name, arguments)
 
         elapsed = round((time.time() - start_time) * 1000, 1)
         executed_at = datetime.utcnow().isoformat() + "Z"
@@ -719,7 +758,8 @@ async def _run_tool(
         # If the transport died under us, reflect that in the session status
         # so subsequent calls short-circuit cleanly and the UI can prompt a
         # reconnect instead of issuing more doomed requests.
-        if isinstance(e, MCPDisconnectedError) or not client.is_alive():
+        client = _clients.get(session_id)
+        if isinstance(e, MCPDisconnectedError) or (client is not None and not client.is_alive()):
             session["status"] = "disconnected"
             db_sess_update = ctx.db_session_factory()
             try:

@@ -27,6 +27,8 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures" / "mcp"
 sys.path.insert(0, str(REPO_ROOT / "src"))
@@ -36,6 +38,8 @@ from selqor_forge.dashboard.mcp_client import (  # noqa: E402
     MCPDisconnectedError,
     StdioMCPClient,
 )
+
+pytestmark = pytest.mark.asyncio
 
 
 def _pick_free_port() -> int:
