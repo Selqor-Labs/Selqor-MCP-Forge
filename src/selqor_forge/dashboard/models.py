@@ -569,6 +569,7 @@ class PlaygroundSession(Base):
 
     id = Column(String, primary_key=True)
     org_id = Column(String, ForeignKey("sf_organizations.id"), nullable=True)
+    integration_id = Column(String, nullable=True, index=True)
     name = Column(String, nullable=False)
     transport = Column(String, nullable=False)
     status = Column(String, nullable=False, default="disconnected")
@@ -596,5 +597,76 @@ class PlaygroundExecution(Base):
     status = Column(String, nullable=False, default="success")
     latency_ms = Column(Float, nullable=True)
     executed_at = Column(String, nullable=False)
+    # Raw JSON-RPC frames captured during the call; shape: {request, response}
+    raw_rpc = Column(JSON, nullable=True)
+    # Optional tag for attribution: "manual" | "suite" | "agent"
+    origin = Column(String, nullable=False, default="manual")
 
     session = relationship("PlaygroundSession", back_populates="executions")
+
+
+class PlaygroundTestCase(Base):
+    """Saved assertion-backed test case for a tool.
+
+    Test cases are keyed on (session_id, tool_name) but we also store the tool
+    name independently so tests survive server reconnects (a reconnect creates
+    a fresh session id, but the tool name is stable).
+    """
+
+    __tablename__ = "sf_playground_testcases"
+
+    id = Column(String, primary_key=True)
+    org_id = Column(String, ForeignKey("sf_organizations.id"), nullable=True)
+    session_id = Column(String, ForeignKey("sf_playground_sessions.id", ondelete="SET NULL"), nullable=True)
+    # Preferred lookup key once the session is gone
+    tool_name = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    arguments = Column(JSON, nullable=False, default=dict)
+    # Each assertion: {op: str, path?: str, value?: Any, flags?: dict}
+    assertions = Column(JSON, nullable=False, default=list)
+    created_at = Column(String, nullable=False)
+    updated_at = Column(String, nullable=True)
+    # Cached last-run summary so the list view can show status without joining
+    last_status = Column(String, nullable=True)  # "pass" | "fail" | "error" | null
+    last_run_at = Column(String, nullable=True)
+
+
+class PlaygroundTestRun(Base):
+    """Result of running one test case."""
+
+    __tablename__ = "sf_playground_testruns"
+
+    id = Column(String, primary_key=True)
+    testcase_id = Column(String, ForeignKey("sf_playground_testcases.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(String, nullable=False)
+    tool_name = Column(String, nullable=False)
+    status = Column(String, nullable=False)  # "pass" | "fail" | "error"
+    # Per-assertion outcomes: [{op, path, expected, actual, passed, message}]
+    assertion_results = Column(JSON, nullable=False, default=list)
+    result = Column(JSON, nullable=True)
+    error = Column(String, nullable=True)
+    latency_ms = Column(Float, nullable=True)
+    executed_at = Column(String, nullable=False)
+
+
+class PlaygroundAgentRun(Base):
+    """Record of an agent-in-the-loop chat run."""
+
+    __tablename__ = "sf_playground_agent_runs"
+
+    id = Column(String, primary_key=True)
+    session_id = Column(String, ForeignKey("sf_playground_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(String, ForeignKey("sf_organizations.id"), nullable=True)
+    user_message = Column(Text, nullable=False)
+    final_message = Column(Text, nullable=True)
+    # Full transcript: [{role, content, tool_calls?, tool_result?}]
+    trace = Column(JSON, nullable=False, default=list)
+    tools_used = Column(JSON, nullable=False, default=list)  # [tool_name, ...]
+    iterations = Column(Integer, nullable=False, default=0)
+    status = Column(String, nullable=False, default="completed")  # completed | error | max_iterations
+    error = Column(String, nullable=True)
+    total_latency_ms = Column(Float, nullable=True)
+    llm_model = Column(String, nullable=True)
+    llm_provider = Column(String, nullable=True)
+    created_at = Column(String, nullable=False)

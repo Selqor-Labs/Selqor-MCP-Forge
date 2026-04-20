@@ -37,6 +37,7 @@ dev = [
     "httpx",
     "mypy>=1.11",
     "ruff>=0.8.0",
+    "mcp>=1.0.0",
 ]
 
 [project.scripts]
@@ -56,3 +57,4 @@ strict = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-p no:cacheprovider"
+asyncio_default_fixture_loop_scope = "function"

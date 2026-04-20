@@ -35,8 +35,11 @@ from selqor_forge.dashboard.models import (
     MonitoringCheck,
     NotificationChannel,
     NotificationLog,
+    PlaygroundAgentRun,
     PlaygroundExecution,
     PlaygroundSession,
+    PlaygroundTestCase,
+    PlaygroundTestRun,
     RemediationStatus,
     Run,
     ScanPolicy,
@@ -750,6 +753,15 @@ class PlaygroundSessionRepository:
         stmt = select(PlaygroundSession).where(PlaygroundSession.id == session_id)
         return self.session.execute(stmt).scalar_one_or_none()
 
+    def get_active_by_integration_id(self, integration_id: str) -> PlaygroundSession | None:
+        """Return the most-recent session for an integration, or None."""
+        stmt = (
+            select(PlaygroundSession)
+            .where(PlaygroundSession.integration_id == integration_id)
+            .order_by(PlaygroundSession.connected_at.desc())
+        )
+        return self.session.execute(stmt).scalars().first()
+
     def create(self, **kwargs) -> PlaygroundSession:
         model = PlaygroundSession(**kwargs)
         self.session.add(model)
@@ -791,6 +803,109 @@ class PlaygroundExecutionRepository:
         self.session.add(model)
         self.session.commit()
         return model
+
+    def list_for_stats(self, session_id: str) -> list[PlaygroundExecution]:
+        """Return every execution for the session (used for aggregates)."""
+        stmt = (
+            select(PlaygroundExecution)
+            .where(PlaygroundExecution.session_id == session_id)
+            .order_by(PlaygroundExecution.executed_at.desc())
+        )
+        return self.session.execute(stmt).scalars().all()
+
+
+class PlaygroundTestCaseRepository:
+    """Repository for PlaygroundTestCase CRUD."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def list_by_session(self, session_id: str, tool_name: str | None = None) -> list[PlaygroundTestCase]:
+        stmt = select(PlaygroundTestCase).where(PlaygroundTestCase.session_id == session_id)
+        if tool_name:
+            stmt = stmt.where(PlaygroundTestCase.tool_name == tool_name)
+        stmt = stmt.order_by(PlaygroundTestCase.created_at.desc())
+        return self.session.execute(stmt).scalars().all()
+
+    def list_by_tool(self, tool_name: str) -> list[PlaygroundTestCase]:
+        stmt = (
+            select(PlaygroundTestCase)
+            .where(PlaygroundTestCase.tool_name == tool_name)
+            .order_by(PlaygroundTestCase.created_at.desc())
+        )
+        return self.session.execute(stmt).scalars().all()
+
+    def get_by_id(self, testcase_id: str) -> PlaygroundTestCase | None:
+        stmt = select(PlaygroundTestCase).where(PlaygroundTestCase.id == testcase_id)
+        return self.session.execute(stmt).scalar_one_or_none()
+
+    def create(self, **kwargs) -> PlaygroundTestCase:
+        model = PlaygroundTestCase(**kwargs)
+        self.session.add(model)
+        self.session.commit()
+        return model
+
+    def update(self, testcase_id: str, **kwargs) -> PlaygroundTestCase | None:
+        model = self.get_by_id(testcase_id)
+        if model:
+            for k, v in kwargs.items():
+                setattr(model, k, v)
+            self.session.commit()
+        return model
+
+    def delete(self, testcase_id: str) -> bool:
+        stmt = delete(PlaygroundTestCase).where(PlaygroundTestCase.id == testcase_id)
+        result = self.session.execute(stmt)
+        self.session.commit()
+        return result.rowcount > 0
+
+
+class PlaygroundTestRunRepository:
+    """Repository for PlaygroundTestRun records."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create(self, **kwargs) -> PlaygroundTestRun:
+        model = PlaygroundTestRun(**kwargs)
+        self.session.add(model)
+        self.session.commit()
+        return model
+
+    def list_by_testcase(self, testcase_id: str, limit: int = 25) -> list[PlaygroundTestRun]:
+        stmt = (
+            select(PlaygroundTestRun)
+            .where(PlaygroundTestRun.testcase_id == testcase_id)
+            .order_by(PlaygroundTestRun.executed_at.desc())
+            .limit(limit)
+        )
+        return self.session.execute(stmt).scalars().all()
+
+
+class PlaygroundAgentRunRepository:
+    """Repository for PlaygroundAgentRun records."""
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create(self, **kwargs) -> PlaygroundAgentRun:
+        model = PlaygroundAgentRun(**kwargs)
+        self.session.add(model)
+        self.session.commit()
+        return model
+
+    def list_by_session(self, session_id: str, limit: int = 25) -> list[PlaygroundAgentRun]:
+        stmt = (
+            select(PlaygroundAgentRun)
+            .where(PlaygroundAgentRun.session_id == session_id)
+            .order_by(PlaygroundAgentRun.created_at.desc())
+            .limit(limit)
+        )
+        return self.session.execute(stmt).scalars().all()
+
+    def get_by_id(self, run_id: str) -> PlaygroundAgentRun | None:
+        stmt = select(PlaygroundAgentRun).where(PlaygroundAgentRun.id == run_id)
+        return self.session.execute(stmt).scalar_one_or_none()
 
 
 # ---------------------------------------------------------------------------

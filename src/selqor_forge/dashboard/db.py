@@ -195,6 +195,34 @@ def _apply_sqlite_migrations(engine, logger) -> None:
                         conn.execute(text(f"ALTER TABLE sf_dashboard_users ADD COLUMN {col_name} {col_def}"))
                     logger.info("Added column %s to sf_dashboard_users", col_name)
 
+        # Playground executions: add raw_rpc / origin for trace + attribution
+        if "sf_playground_executions" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("sf_playground_executions")}
+            for col_name, col_def in [
+                ("raw_rpc", "JSON"),
+                ("origin", "TEXT DEFAULT 'manual'"),
+            ]:
+                if col_name not in existing:
+                    with engine.begin() as conn:
+                        conn.execute(text(
+                            f"ALTER TABLE sf_playground_executions ADD COLUMN {col_name} {col_def}"
+                        ))
+                    logger.info("Added column %s to sf_playground_executions", col_name)
+
+        # Playground sessions: add integration_id so we can dedupe sessions per integration
+        if "sf_playground_sessions" in insp.get_table_names():
+            existing = {c["name"] for c in insp.get_columns("sf_playground_sessions")}
+            if "integration_id" not in existing:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE sf_playground_sessions ADD COLUMN integration_id TEXT"
+                    ))
+                    conn.execute(text(
+                        "CREATE INDEX IF NOT EXISTS ix_sf_playground_sessions_integration_id "
+                        "ON sf_playground_sessions (integration_id)"
+                    ))
+                logger.info("Added column integration_id to sf_playground_sessions")
+
     except Exception as e:
         logger.debug("SQLite migration skipped: %s", e)
 
@@ -204,6 +232,9 @@ def _apply_column_migrations(engine, logger) -> None:
     migrations = [
         ("sf_integrations", "specs", "JSONB DEFAULT '[]'::jsonb"),
         ("sf_integrations", "agent_prompt", "TEXT"),
+        ("sf_playground_executions", "raw_rpc", "JSONB"),
+        ("sf_playground_executions", "origin", "TEXT DEFAULT 'manual'"),
+        ("sf_playground_sessions", "integration_id", "TEXT"),
     ]
     with engine.begin() as conn:
         for table, column, col_type in migrations:

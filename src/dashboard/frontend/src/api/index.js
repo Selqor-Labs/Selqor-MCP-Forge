@@ -139,6 +139,17 @@ export const fetchPlaygroundHistory = (id) => api(`/api/playground/sessions/${en
 export const playgroundHealthCheck = (id) => api(`/api/playground/sessions/${encodeURIComponent(id)}/health`, { method: 'POST' });
 export const suggestPlaygroundArgs = (id, payload) => api(`/api/playground/sessions/${encodeURIComponent(id)}/suggest-args`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(payload) });
 
+// Playground — test cases, suite runs, stats, trace, agent chat
+export const fetchPlaygroundTestCases = (id, toolName) => api(`/api/playground/sessions/${encodeURIComponent(id)}/testcases${toolName ? `?tool_name=${encodeURIComponent(toolName)}` : ''}`);
+export const createPlaygroundTestCase = (id, payload) => api(`/api/playground/sessions/${encodeURIComponent(id)}/testcases`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(payload) });
+export const updatePlaygroundTestCase = (testcaseId, payload) => api(`/api/playground/testcases/${encodeURIComponent(testcaseId)}`, { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify(payload) });
+export const deletePlaygroundTestCase = (testcaseId) => api(`/api/playground/testcases/${encodeURIComponent(testcaseId)}`, { method: 'DELETE' });
+export const runPlaygroundSuite = (id, payload = {}) => api(`/api/playground/sessions/${encodeURIComponent(id)}/run-suite`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(payload), _timeout: LONG_TIMEOUT_MS });
+export const fetchPlaygroundStats = (id) => api(`/api/playground/sessions/${encodeURIComponent(id)}/stats`);
+export const fetchPlaygroundTrace = (id, limit = 25) => api(`/api/playground/sessions/${encodeURIComponent(id)}/trace?limit=${limit}`);
+export const playgroundAgentChat = (id, payload) => api(`/api/playground/sessions/${encodeURIComponent(id)}/agent-chat`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify(payload), _timeout: LONG_TIMEOUT_MS });
+export const fetchPlaygroundAgentRuns = (id) => api(`/api/playground/sessions/${encodeURIComponent(id)}/agent-runs`);
+
 // Remediation
 export const applyRemediationFixes = (scanId, fixIds) => api(`/api/remediation/scans/${encodeURIComponent(scanId)}/apply`, { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ fix_ids: fixIds }) });
 export const applyAllRemediationFixes = (scanId) => api(`/api/remediation/scans/${encodeURIComponent(scanId)}/apply-all`, { method: 'POST' });
