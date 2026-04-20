@@ -1,198 +1,436 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
-import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import Tooltip from "@mui/material/Tooltip";
+import Popover from "@mui/material/Popover";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 import BoltOutlinedIcon from "@mui/icons-material/BoltOutlined";
+import AutoAwesomeOutlinedIcon from "@mui/icons-material/AutoAwesomeOutlined";
+import ClearAllOutlinedIcon from "@mui/icons-material/ClearAllOutlined";
+import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import { playgroundAgentChat } from "../../api";
 
-function TraceEntry({ entry }) {
-  if (entry.role === "user") {
-    return (
-      <Paper variant="outlined" sx={{ p: 1.25, bgcolor: "action.hover" }}>
-        <Typography variant="caption" color="text.secondary">you</Typography>
-        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{entry.content}</Typography>
-      </Paper>
-    );
-  }
-  if (entry.role === "assistant") {
-    const hasTools = (entry.tool_calls || []).length > 0;
-    return (
-      <Paper variant="outlined" sx={{ p: 1.25 }}>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">assistant</Typography>
-          <Chip size="small" label={`turn ${entry.iteration || "?"}`} sx={{ height: 18, fontSize: "0.65rem" }} />
-          {entry.stop_reason && <Chip size="small" label={entry.stop_reason} sx={{ height: 18, fontSize: "0.65rem" }} />}
-        </Stack>
-        {entry.text && (
-          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{entry.text}</Typography>
-        )}
-        {hasTools && (
-          <Accordion disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", mt: 0.5, "&:before": { display: "none" } }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.25 } }}>
-              <Typography variant="caption" fontWeight={600}>
-                Wants to call {entry.tool_calls.length} tool{entry.tool_calls.length === 1 ? "" : "s"}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Stack spacing={0.5}>
-                {entry.tool_calls.map((tc, i) => (
-                  <Box key={i}>
-                    <Typography variant="caption" sx={{ fontFamily: "monospace", fontWeight: 600 }}>
-                      {tc.name}
+const EXAMPLE_PROMPTS = [
+  "List everything you can do",
+  "Show me all available items",
+  "Create a test entry and then fetch it back",
+];
+
+function ToolCallsAccordion({ trace }) {
+  const toolEntries = (trace || []).filter((e) => e.role === "tool");
+  if (toolEntries.length === 0) return null;
+  return (
+    <Accordion
+      disableGutters
+      elevation={0}
+      sx={{
+        border: "1px solid",
+        borderColor: "divider",
+        bgcolor: "transparent",
+        mt: 1,
+        "&:before": { display: "none" },
+      }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.5 } }}
+      >
+        <Typography variant="caption" fontWeight={600}>
+          {toolEntries.length} tool call{toolEntries.length === 1 ? "" : "s"} · click to inspect
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        <Stack spacing={0.75}>
+          {toolEntries.map((entry, i) => {
+            const ok = entry.status === "success";
+            return (
+              <Box key={i}>
+                <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.25 }}>
+                  <BoltOutlinedIcon fontSize="small" color={ok ? "success" : "error"} />
+                  <Typography variant="caption" sx={{ fontFamily: "monospace", fontWeight: 600 }}>
+                    {entry.tool_name}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={entry.status}
+                    color={ok ? "success" : "error"}
+                    sx={{ height: 16, fontSize: "0.62rem" }}
+                  />
+                  {entry.latency_ms != null && (
+                    <Typography variant="caption" color="text.secondary">
+                      {entry.latency_ms}ms
                     </Typography>
-                    <Box component="pre" sx={{ m: 0, p: 1, bgcolor: "action.hover", borderRadius: 1, fontFamily: "monospace", fontSize: "0.7rem", overflow: "auto" }}>
-                      {JSON.stringify(tc.arguments || {}, null, 2)}
-                    </Box>
+                  )}
+                </Stack>
+                {entry.result_preview && (
+                  <Box
+                    component="pre"
+                    sx={{
+                      m: 0,
+                      p: 1,
+                      bgcolor: "action.hover",
+                      borderRadius: 1,
+                      fontFamily: "monospace",
+                      fontSize: "0.7rem",
+                      overflow: "auto",
+                      maxHeight: 180,
+                    }}
+                  >
+                    {entry.result_preview}
                   </Box>
-                ))}
-              </Stack>
-            </AccordionDetails>
-          </Accordion>
-        )}
+                )}
+                {entry.error && (
+                  <Typography variant="caption" color="error.main" sx={{ display: "block", mt: 0.25 }}>
+                    {entry.error}
+                  </Typography>
+                )}
+              </Box>
+            );
+          })}
+        </Stack>
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+function UserBubble({ content }) {
+  return (
+    <Stack direction="row" justifyContent="flex-end" sx={{ px: 1.5, pt: 1 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1.25,
+          maxWidth: "78%",
+          bgcolor: "primary.main",
+          color: "primary.contrastText",
+          borderRadius: 2,
+          borderTopRightRadius: 4,
+        }}
+      >
+        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+          {content}
+        </Typography>
       </Paper>
-    );
-  }
-  if (entry.role === "tool") {
-    const ok = entry.status === "success";
-    return (
-      <Paper variant="outlined" sx={{ p: 1.25, borderColor: ok ? "success.main" : "error.main", bgcolor: ok ? "success.50" : "error.50", "&.MuiPaper-root": { bgcolor: "transparent" } }}>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-          <BoltOutlinedIcon fontSize="small" color={ok ? "success" : "error"} />
-          <Typography variant="caption" sx={{ fontFamily: "monospace", fontWeight: 600 }}>{entry.tool_name}</Typography>
-          <Chip size="small" label={entry.status} color={ok ? "success" : "error"} sx={{ height: 18, fontSize: "0.65rem" }} />
-          {entry.latency_ms != null && (
-            <Typography variant="caption" color="text.secondary">{entry.latency_ms}ms</Typography>
+    </Stack>
+  );
+}
+
+function AgentBubble({ result }) {
+  const toolsUsedCounts = (result.tools_used || []).reduce((acc, t) => {
+    acc[t] = (acc[t] || 0) + 1;
+    return acc;
+  }, {});
+  const final = result.final_message || "(no final response)";
+  const isError = result.status && result.status !== "completed";
+
+  return (
+    <Stack direction="row" justifyContent="flex-start" sx={{ px: 1.5, pt: 1 }}>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 1.25,
+          maxWidth: "88%",
+          borderRadius: 2,
+          borderTopLeftRadius: 4,
+          borderColor: isError ? "warning.main" : "divider",
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.75 }}>
+          <AutoAwesomeOutlinedIcon fontSize="small" color="primary" />
+          <Typography variant="caption" fontWeight={600} color="text.secondary">
+            agent
+          </Typography>
+          {result.status && (
+            <Chip
+              size="small"
+              label={result.status}
+              color={isError ? "warning" : "success"}
+              variant="outlined"
+              sx={{ height: 18, fontSize: "0.65rem" }}
+            />
+          )}
+          {result.iterations != null && (
+            <Chip
+              size="small"
+              label={`${result.iterations} turn${result.iterations === 1 ? "" : "s"}`}
+              sx={{ height: 18, fontSize: "0.65rem" }}
+            />
+          )}
+          {result.total_latency_ms != null && (
+            <Typography variant="caption" color="text.secondary">
+              {result.total_latency_ms}ms
+            </Typography>
           )}
         </Stack>
-        {entry.result_preview && (
-          <Box component="pre" sx={{ m: 0, p: 1, bgcolor: "action.hover", borderRadius: 1, fontFamily: "monospace", fontSize: "0.7rem", overflow: "auto", maxHeight: 200 }}>
-            {entry.result_preview}
-          </Box>
+        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+          {final}
+        </Typography>
+        {Object.keys(toolsUsedCounts).length > 0 && (
+          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+            {Object.entries(toolsUsedCounts).map(([name, count]) => (
+              <Chip
+                key={name}
+                size="small"
+                variant="outlined"
+                label={`${name} ×${count}`}
+                sx={{ fontFamily: "monospace", height: 20, fontSize: "0.65rem" }}
+              />
+            ))}
+          </Stack>
         )}
-        {entry.error && (
-          <Typography variant="caption" color="error.main" sx={{ display: "block", mt: 0.5 }}>
-            {entry.error}
+        <ToolCallsAccordion trace={result.trace} />
+        {(result.llm_provider || result.llm_model) && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+            {result.llm_provider}
+            {result.llm_model ? ` · ${result.llm_model}` : ""}
           </Typography>
         )}
       </Paper>
-    );
-  }
-  return null;
+    </Stack>
+  );
 }
 
-export default function AgentPanel({ sessionId, onToast, llmConfigs = [] }) {
+function PendingBubble() {
+  return (
+    <Stack direction="row" justifyContent="flex-start" sx={{ px: 1.5, pt: 1 }}>
+      <Paper
+        variant="outlined"
+        sx={{ p: 1.25, borderRadius: 2, borderTopLeftRadius: 4, display: "flex", alignItems: "center", gap: 1 }}
+      >
+        <CircularProgress size={14} />
+        <Typography variant="body2" color="text.secondary">
+          Agent is picking a tool…
+        </Typography>
+      </Paper>
+    </Stack>
+  );
+}
+
+function EmptyState({ onPick }) {
+  return (
+    <Box sx={{ p: 3, textAlign: "center", color: "text.secondary" }}>
+      <AutoAwesomeOutlinedIcon sx={{ fontSize: 32, mb: 1, opacity: 0.7 }} />
+      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+        Test your tools in plain English
+      </Typography>
+      <Typography variant="caption" sx={{ display: "block", maxWidth: 480, mx: "auto", mb: 2 }}>
+        Ask the agent something — it will pick a tool, call it, and show you exactly which one it chose and why.
+        This is the real test of whether your tool descriptions make sense to an LLM.
+      </Typography>
+      <Stack direction="row" spacing={0.75} justifyContent="center" flexWrap="wrap" useFlexGap>
+        {EXAMPLE_PROMPTS.map((p) => (
+          <Chip
+            key={p}
+            label={p}
+            size="small"
+            variant="outlined"
+            onClick={() => onPick(p)}
+            sx={{ cursor: "pointer" }}
+          />
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
+export default function AgentPanel({ sessionId, onToast }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [last, setLast] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [maxIter, setMaxIter] = useState(6);
+  const [settingsAnchor, setSettingsAnchor] = useState(null);
+  const scrollRef = useRef(null);
 
-  async function send() {
-    if (!message.trim() || !sessionId) return;
+  // Reset conversation when session changes
+  useEffect(() => {
+    setMessages([]);
+  }, [sessionId]);
+
+  // Auto-scroll to bottom on new message
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, busy]);
+
+  async function send(text) {
+    const content = (text ?? message).trim();
+    if (!content || !sessionId || busy) return;
+    setMessage("");
+    setMessages((prev) => [...prev, { role: "user", content }]);
     setBusy(true);
     try {
       const res = await playgroundAgentChat(sessionId, {
-        message: message.trim(),
+        message: content,
         max_iterations: maxIter,
       });
-      setLast(res);
+      setMessages((prev) => [...prev, { role: "agent", result: res }]);
       if (res.status !== "completed") {
         onToast?.(`Agent stopped: ${res.status}${res.error ? ` — ${res.error}` : ""}`, "error");
-      } else {
-        onToast?.(`Agent used ${res.tools_used?.length || 0} tool call${res.tools_used?.length === 1 ? "" : "s"} in ${res.iterations} turn${res.iterations === 1 ? "" : "s"}`);
       }
     } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "agent", result: { status: "error", final_message: err.message, trace: [] } },
+      ]);
       onToast?.(err.message, "error");
     } finally {
       setBusy(false);
     }
   }
 
-  const toolsUsedCounts = (last?.tools_used || []).reduce((acc, t) => {
-    acc[t] = (acc[t] || 0) + 1;
-    return acc;
-  }, {});
+  function handleKeyDown(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  }
 
   return (
-    <Box>
-      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-        Agent Chat
-      </Typography>
-      <Alert severity="info" sx={{ fontSize: "0.8rem", mb: 1.5 }}>
-        Types an intent → the default LLM uses the session's tools to answer. Surfaces which tool it picks and why — the real test of tool-description quality.
-      </Alert>
-      <Stack spacing={1.5}>
-        <TextField
-          multiline
-          rows={3}
-          size="small"
-          placeholder="e.g. Find all pets with status 'available', then return the first two names."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          disabled={busy}
-          fullWidth
-        />
-        <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
+    <Paper
+      variant="outlined"
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        minHeight: 0,
+        flex: 1,
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{ px: 1.5, py: 1, borderBottom: "1px solid", borderColor: "divider" }}
+      >
+        <AutoAwesomeOutlinedIcon fontSize="small" color="primary" />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="subtitle2" fontWeight={600} lineHeight={1.2}>
+            Agent Chat
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Ask a question — the LLM picks which of your tools to call.
+          </Typography>
+        </Box>
+        <Tooltip title="Agent settings">
+          <IconButton
             size="small"
-            type="number"
-            label="Max iterations"
-            value={maxIter}
-            onChange={(e) => setMaxIter(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
-            sx={{ width: 140 }}
-          />
-          <Box sx={{ flex: 1 }} />
-          <Button
-            variant="contained"
-            size="small"
-            onClick={send}
-            disabled={busy || !sessionId || !message.trim()}
-            startIcon={busy ? <CircularProgress size={14} color="inherit" /> : <SendOutlinedIcon />}
+            onClick={(e) => setSettingsAnchor(e.currentTarget)}
           >
-            {busy ? "Running..." : "Send"}
-          </Button>
-        </Stack>
-
-        {last && (
-          <Paper variant="outlined" sx={{ p: 1.5 }}>
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 1 }}>
-              <Chip size="small" label={last.status} color={last.status === "completed" ? "success" : "warning"} />
-              <Chip size="small" label={`${last.iterations} turn${last.iterations === 1 ? "" : "s"}`} />
-              <Chip size="small" label={`${last.total_latency_ms || 0}ms`} />
-              <Typography variant="caption" color="text.secondary">
-                {last.llm_provider} · {last.llm_model}
-              </Typography>
-            </Stack>
-            {Object.keys(toolsUsedCounts).length > 0 && (
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
-                {Object.entries(toolsUsedCounts).map(([name, count]) => (
-                  <Chip key={name} size="small" variant="outlined" label={`${name} ×${count}`} sx={{ fontFamily: "monospace" }} />
-                ))}
-              </Stack>
-            )}
-            <Stack spacing={1}>
-              {(last.trace || []).map((entry, i) => (
-                <TraceEntry key={i} entry={entry} />
-              ))}
-            </Stack>
-            {last.final_message && (
-              <Alert severity="success" sx={{ mt: 1.5, whiteSpace: "pre-wrap" }}>
-                {last.final_message}
-              </Alert>
-            )}
-          </Paper>
+            <TuneOutlinedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        {messages.length > 0 && (
+          <Tooltip title="Clear conversation">
+            <IconButton size="small" onClick={() => setMessages([])} disabled={busy}>
+              <ClearAllOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
       </Stack>
-    </Box>
+
+      <Popover
+        open={Boolean(settingsAnchor)}
+        anchorEl={settingsAnchor}
+        onClose={() => setSettingsAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{ paper: { sx: { p: 2, width: 280 } } }}
+      >
+        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.25 }}>
+          Agent settings
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+          Safety cap on the think → call-tool → read-result loop. After this many
+          round-trips the agent is forced to stop even if it still wants to keep
+          going. Higher = more complex multi-step queries; lower = tighter cost
+          control.
+        </Typography>
+        <TextField
+          size="small"
+          type="number"
+          label="Max turns"
+          value={maxIter}
+          onChange={(e) => setMaxIter(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
+          inputProps={{ min: 1, max: 12 }}
+          fullWidth
+          helperText="Between 1 and 12 · default 6"
+        />
+      </Popover>
+
+      {/* Conversation */}
+      <Box
+        ref={scrollRef}
+        sx={{
+          flex: 1,
+          overflowY: "auto",
+          bgcolor: "background.default",
+          py: 1,
+        }}
+      >
+        {messages.length === 0 && !busy ? (
+          <EmptyState onPick={(p) => send(p)} />
+        ) : (
+          <>
+            {messages.map((m, i) =>
+              m.role === "user" ? (
+                <UserBubble key={i} content={m.content} />
+              ) : (
+                <AgentBubble key={i} result={m.result} />
+              )
+            )}
+            {busy && <PendingBubble />}
+          </>
+        )}
+      </Box>
+
+      {/* Composer */}
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="flex-end"
+        sx={{ p: 1, borderTop: "1px solid", borderColor: "divider" }}
+      >
+        <TextField
+          fullWidth
+          multiline
+          maxRows={4}
+          size="small"
+          placeholder={
+            sessionId
+              ? "Type a request — e.g. 'Create a pet named Rex and show me everything available'"
+              : "Connect to a session first"
+          }
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={!sessionId || busy}
+        />
+        <Tooltip title="Send (Enter)">
+          <span>
+            <IconButton
+              color="primary"
+              onClick={() => send()}
+              disabled={busy || !sessionId || !message.trim()}
+              sx={{ border: "1px solid", borderColor: "divider" }}
+            >
+              {busy ? <CircularProgress size={18} /> : <SendOutlinedIcon fontSize="small" />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Stack>
+    </Paper>
   );
 }

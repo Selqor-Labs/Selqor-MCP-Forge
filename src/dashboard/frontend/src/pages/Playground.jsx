@@ -34,7 +34,8 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import PlayArrowOutlinedIcon from "@mui/icons-material/PlayArrowOutlined";
 import AddIcon from "@mui/icons-material/Add";
-import CloseIcon from "@mui/icons-material/Close";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import MonitorHeartOutlinedIcon from "@mui/icons-material/MonitorHeartOutlined";
 import SearchIcon from "@mui/icons-material/Search";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -198,6 +199,8 @@ export default function Playground() {
   const [connecting, setConnecting] = useState(null);
   const [connectOpen, setConnectOpen] = useState(false);
   const [disconnectTarget, setDisconnectTarget] = useState(null);
+  const [sessionHealth, setSessionHealth] = useState({});
+  const [healthChecking, setHealthChecking] = useState({});
 
   // Active session state
   const [activeSession, setActiveSession] = useState(null);
@@ -267,12 +270,16 @@ export default function Playground() {
         fetchPlaygroundSessions(),
         fetchAvailableIntegrations().catch(() => ({ integrations: [] })),
       ]);
-      setSessions(sessRes.sessions || []);
+      const allSessions = sessRes.sessions || [];
+      setSessions(allSessions);
       setAvailableIntegrations(intRes.integrations || []);
-      // Auto-select the only session on first load, so the user isn't staring
-      // at an empty pane after coming from the integration workflow.
-      if (!activeSession && (sessRes.sessions || []).length === 1) {
-        selectSession(sessRes.sessions[0]);
+      // Auto-select the first connected session on load so the user lands on
+      // something usable instead of an empty pane.
+      if (!activeSession) {
+        const firstConnected = allSessions.find((s) => s.status === "connected");
+        if (firstConnected) {
+          selectSession(firstConnected);
+        }
       }
     } catch (err) {
       toast(err.message, "error");
@@ -287,15 +294,18 @@ export default function Playground() {
 
   async function handleConnect(e) {
     e.preventDefault();
+    setConnecting("manual");
     try {
       const res = await connectPlaygroundServer(form);
       toast("Connected to MCP server");
       setConnectOpen(false);
       setForm({ name: "", transport: "stdio", command: "", server_url: "" });
-      loadSessions();
+      await loadSessions();
       selectSession(res);
     } catch (err) {
       toast(err.message, "error");
+    } finally {
+      setConnecting(null);
     }
   }
 
@@ -355,6 +365,10 @@ export default function Playground() {
         setHistory([]);
         setSelectedTool(null);
       }
+      setSessionHealth((prev) => {
+        const { [disconnectTarget]: _, ...rest } = prev;
+        return rest;
+      });
       loadSessions();
     } catch (err) {
       toast(err.message, "error");
@@ -470,10 +484,20 @@ export default function Playground() {
     toast("Arguments reset to schema template");
   }
 
-  async function handleHealthCheck() {
-    if (!activeSession) return;
+  async function handleSessionHealthCheck(sessionId, e) {
+    e?.stopPropagation();
+    if (!sessionId) return;
+    setHealthChecking((prev) => ({ ...prev, [sessionId]: true }));
     try {
-      const res = await playgroundHealthCheck(activeSession.id);
+      const res = await playgroundHealthCheck(sessionId);
+      setSessionHealth((prev) => ({
+        ...prev,
+        [sessionId]: {
+          healthy: res.healthy,
+          reason: res.reason,
+          checkedAt: Date.now(),
+        },
+      }));
       toast(
         res.healthy
           ? "Server healthy"
@@ -481,7 +505,13 @@ export default function Playground() {
         res.healthy ? "" : "error",
       );
     } catch (err) {
+      setSessionHealth((prev) => ({
+        ...prev,
+        [sessionId]: { healthy: false, reason: err.message, checkedAt: Date.now() },
+      }));
       toast(err.message, "error");
+    } finally {
+      setHealthChecking((prev) => ({ ...prev, [sessionId]: false }));
     }
   }
 
@@ -652,20 +682,47 @@ export default function Playground() {
                   </Box>
                 )}
                 <List disablePadding dense>
-                  {sessions.map((s) => (
+                  {sessions.map((s) => {
+                    const isConnected = s.status === "connected";
+                    return (
                     <React.Fragment key={s.id}>
                       <ListItemButton
                         selected={activeSession?.id === s.id}
-                        onClick={() => selectSession(s)}
-                        sx={{ pr: 5, position: "relative" }}
+                        onClick={() => {
+                          if (!isConnected) {
+                            toast(
+                              "Session is disconnected. Delete it and reconnect from the Connect button.",
+                              "error",
+                            );
+                            return;
+                          }
+                          selectSession(s);
+                        }}
+                        sx={{
+                          pr: 5,
+                          position: "relative",
+                          opacity: isConnected ? 1 : 0.55,
+                          cursor: isConnected ? "pointer" : "not-allowed",
+                        }}
                       >
                         <ListItemText
                           primaryTypographyProps={{ component: "div" }}
                           secondaryTypographyProps={{ component: "div" }}
                           primary={
-                            <Typography variant="body2" fontWeight={500} noWrap>
-                              {s.name || s.id}
-                            </Typography>
+                            <Stack direction="row" alignItems="center" spacing={0.75}>
+                              <Box
+                                sx={{
+                                  width: 7,
+                                  height: 7,
+                                  borderRadius: "50%",
+                                  flexShrink: 0,
+                                  bgcolor: isConnected ? "success.main" : "error.main",
+                                }}
+                              />
+                              <Typography variant="body2" fontWeight={500} noWrap>
+                                {s.name || s.id}
+                              </Typography>
+                            </Stack>
                           }
                           secondary={
                             <Stack
@@ -680,6 +737,15 @@ export default function Playground() {
                               >
                                 {s.transport}
                               </Typography>
+                              {!isConnected && (
+                                <Typography
+                                  variant="caption"
+                                  color="error.main"
+                                  fontWeight={600}
+                                >
+                                  · disconnected
+                                </Typography>
+                              )}
                               <Chip
                                 label={`${s.tools_count || 0} tools`}
                                 size="small"
@@ -688,7 +754,36 @@ export default function Playground() {
                             </Stack>
                           }
                         />
-                        <Tooltip title="Disconnect">
+                        <Tooltip
+                          title={
+                            sessionHealth[s.id]
+                              ? sessionHealth[s.id].healthy
+                                ? "Healthy — click to recheck"
+                                : `Unhealthy: ${sessionHealth[s.id].reason || "unknown"} — click to recheck`
+                              : "Check health"
+                          }
+                        >
+                          <IconButton
+                            size="small"
+                            color={
+                              sessionHealth[s.id]
+                                ? sessionHealth[s.id].healthy
+                                  ? "success"
+                                  : "error"
+                                : "default"
+                            }
+                            sx={{ position: "absolute", top: 6, right: 30 }}
+                            disabled={!!healthChecking[s.id]}
+                            onClick={(e) => handleSessionHealthCheck(s.id, e)}
+                          >
+                            {healthChecking[s.id] ? (
+                              <CircularProgress size={12} />
+                            ) : (
+                              <MonitorHeartOutlinedIcon sx={{ fontSize: 14 }} />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete session">
                           <IconButton
                             size="small"
                             color="error"
@@ -698,13 +793,14 @@ export default function Playground() {
                               setDisconnectTarget(s.id);
                             }}
                           >
-                            <CloseIcon sx={{ fontSize: 14 }} />
+                            <DeleteOutlineIcon sx={{ fontSize: 14 }} />
                           </IconButton>
                         </Tooltip>
                       </ListItemButton>
                       <Divider component="li" />
                     </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </List>
               </>
             )}
@@ -764,13 +860,6 @@ export default function Playground() {
                   {activeSession.transport || "mcp"} transport
                 </Typography>
               </Box>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleHealthCheck}
-              >
-                Health Check
-              </Button>
             </Box>
 
             {/* Feature 4 — baseline vs curated. Only rendered for
@@ -801,25 +890,38 @@ export default function Playground() {
               <Tab value="stats" label="Stats" sx={{ minHeight: 36, textTransform: "none" }} />
             </Tabs>
 
-            {activeTab !== "tools" && (
+            {activeTab === "tests" && (
               <Paper variant="outlined" sx={{ p: 2 }}>
-                {activeTab === "tests" && (
-                  <TestCasesPanel
-                    sessionId={activeSession.id}
-                    toolName={selectedTool}
-                    toolArgs={toolArgs}
-                    onToast={toast}
-                  />
-                )}
-                {activeTab === "agent" && (
-                  <AgentPanel sessionId={activeSession.id} onToast={toast} />
-                )}
-                {activeTab === "trace" && (
-                  <TracePanel sessionId={activeSession.id} onToast={toast} />
-                )}
-                {activeTab === "stats" && (
-                  <StatsPanel sessionId={activeSession.id} onToast={toast} />
-                )}
+                <TestCasesPanel
+                  sessionId={activeSession.id}
+                  toolName={selectedTool}
+                  toolArgs={toolArgs}
+                  onToast={toast}
+                />
+              </Paper>
+            )}
+            {activeTab === "agent" && (
+              <Box
+                sx={{
+                  position: "sticky",
+                  top: 0,
+                  height: "calc(100vh - 180px)",
+                  minHeight: 420,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <AgentPanel sessionId={activeSession.id} onToast={toast} />
+              </Box>
+            )}
+            {activeTab === "trace" && (
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <TracePanel sessionId={activeSession.id} onToast={toast} />
+              </Paper>
+            )}
+            {activeTab === "stats" && (
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <StatsPanel sessionId={activeSession.id} onToast={toast} />
               </Paper>
             )}
 
@@ -1324,11 +1426,25 @@ export default function Playground() {
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button size="small" onClick={() => setConnectOpen(false)}>
+            <Button
+              size="small"
+              onClick={() => setConnectOpen(false)}
+              disabled={connecting === "manual"}
+            >
               Cancel
             </Button>
-            <Button type="submit" size="small" variant="contained">
-              Connect
+            <Button
+              type="submit"
+              size="small"
+              variant="contained"
+              disabled={connecting === "manual"}
+              startIcon={
+                connecting === "manual" ? (
+                  <CircularProgress size={14} color="inherit" />
+                ) : null
+              }
+            >
+              {connecting === "manual" ? "Connecting…" : "Connect"}
             </Button>
           </DialogActions>
         </Box>
