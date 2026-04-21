@@ -19,14 +19,12 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start-5-minutes">Quick Start</a> •
-  <a href="#golden-path-demo">Demo</a> •
-  <a href="#why-it-feels-different">Why Forge</a> •
-  <a href="#security-scanning--compliance">Security</a> •
+  <a href="#quick-start-5-minutes">Quick Start</a> &bull;
+  <a href="#golden-path-demo">Demo</a> &bull;
+  <a href="#why-it-feels-different">Why Forge</a> &bull;
+  <a href="#security-scanning--compliance">Security</a> &bull;
   <a href="#more-documentation">Docs</a>
 </p>
-
-![Selqor Forge README banner](docs/assets/forge-banner.png)
 
 Selqor Forge turns your application's API specs into smaller, higher-signal MCP servers with smart and intelligently curated tools, then gives you a dashboard to manage integrations, auth, LLM configs, run history, and deployment prep.
 
@@ -73,10 +71,6 @@ Selqor Forge turns your application's API specs into smaller, higher-signal MCP 
 - Generated CI/CD templates install Selqor Forge from a pinned GitHub commit tarball, not from PyPI.
 
 ## Golden Path Demo
-
-**Workflow**
-
-![Selqor Forge golden path workflow infographic](docs/assets/golden-path-infographic.svg)
 
 **Fastest path to value**
 
