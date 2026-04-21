@@ -1,116 +1,100 @@
 <svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bg" x1="120" y1="80" x2="1180" y2="660" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="140" y1="80" x2="1180" y2="660" gradientUnits="userSpaceOnUse">
       <stop stop-color="#F7FAFC"/>
-      <stop offset="1" stop-color="#E9F1F8"/>
+      <stop offset="1" stop-color="#E7EFF7"/>
     </linearGradient>
-    <linearGradient id="panel" x1="190" y1="192" x2="1090" y2="588" gradientUnits="userSpaceOnUse">
+    <linearGradient id="panel" x1="170" y1="332" x2="1110" y2="612" gradientUnits="userSpaceOnUse">
       <stop stop-color="#0E2235"/>
-      <stop offset="1" stop-color="#163650"/>
+      <stop offset="1" stop-color="#17364F"/>
     </linearGradient>
-    <filter id="shadow" x="120" y="120" width="1040" height="520" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <filter id="shadow" x="120" y="286" width="1040" height="356" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
       <feFlood flood-opacity="0" result="BackgroundImageFix"/>
       <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-      <feOffset dy="16"/>
+      <feOffset dy="20"/>
       <feGaussianBlur stdDeviation="20"/>
-      <feColorMatrix type="matrix" values="0 0 0 0 0.0588235 0 0 0 0 0.133333 0 0 0 0 0.207843 0 0 0 0.14 0"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0588235 0 0 0 0 0.133333 0 0 0 0 0.207843 0 0 0 0.16 0"/>
       <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
       <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
     </filter>
     <style>
-      .title { font: 700 34px 'Segoe UI', Arial, sans-serif; fill: #081521; }
-      .subtitle { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #40576E; }
-      .eyebrow { font: 700 14px 'Segoe UI', Arial, sans-serif; letter-spacing: 0.18em; fill: #D88A00; }
-      .cardTitle { font: 700 22px 'Segoe UI', Arial, sans-serif; fill: #F7FAFC; }
-      .cardText { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #C8D6E5; }
-      .metricValue { font: 700 34px 'Segoe UI', Arial, sans-serif; fill: #F7FAFC; }
-      .metricLabel { font: 600 13px 'Segoe UI', Arial, sans-serif; letter-spacing: 0.08em; fill: #8DA8C0; }
-      .pillText { font: 700 14px 'Segoe UI', Arial, sans-serif; }
-      .flowText { font: 700 19px 'Segoe UI', Arial, sans-serif; fill: #E9F1F8; }
-      .smallText { font: 400 14px 'Segoe UI', Arial, sans-serif; fill: #9FB8CE; }
+      .eyebrow { font: 700 14px 'Segoe UI', Arial, sans-serif; letter-spacing: 0.2em; fill: #D88A00; }
+      .title { font: 700 36px 'Segoe UI', Arial, sans-serif; fill: #0B1825; }
+      .subtitle { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #45607A; }
+      .pill { font: 700 14px 'Segoe UI', Arial, sans-serif; fill: #102235; }
+      .panelLabel { font: 700 13px 'Segoe UI', Arial, sans-serif; letter-spacing: 0.14em; fill: #8FB0CA; }
+      .panelTitle { font: 700 44px 'Segoe UI', Arial, sans-serif; fill: #F7FAFC; }
+      .panelText { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #D1DDE8; }
+      .cardTitle { font: 700 21px 'Segoe UI', Arial, sans-serif; fill: #F7FAFC; }
+      .cardText { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #B9CBDB; }
+      .metricBig { font: 700 72px 'Segoe UI', Arial, sans-serif; fill: #FFF8ED; }
+      .metricLabel { font: 700 16px 'Segoe UI', Arial, sans-serif; letter-spacing: 0.12em; fill: #FFF1CC; }
+      .metricText { font: 400 15px 'Segoe UI', Arial, sans-serif; fill: #FFF6E1; }
+      .stripTitle { font: 700 17px 'Segoe UI', Arial, sans-serif; fill: #F2F7FB; }
+      .stripText { font: 400 14px 'Segoe UI', Arial, sans-serif; fill: #B3C7D9; }
     </style>
   </defs>
 
   <rect width="1280" height="720" rx="32" fill="url(#bg)"/>
 
   <text x="120" y="118" class="eyebrow">SELQOR FORGE</text>
-  <text x="120" y="170" class="title">Turn raw API sprawl into curated MCP servers.</text>
-  <text x="120" y="206" class="subtitle">Parse specs, preserve coverage, compress tool noise, review security, and ship TypeScript or Rust targets with a local dashboard.</text>
+  <text x="120" y="172" class="title">Turn raw API sprawl into curated MCP servers.</text>
+  <text x="120" y="208" class="subtitle">Parse specs, preserve coverage, compress tool noise, review security, and ship TypeScript or Rust targets with a local dashboard.</text>
 
   <g>
-    <rect x="120" y="252" width="170" height="42" rx="21" fill="#FFFFFF" stroke="#D9E3EC"/>
-    <text x="155" y="278" class="pillText" fill="#0E2235">Public v0.1</text>
-    <rect x="306" y="252" width="220" height="42" rx="21" fill="#FFFFFF" stroke="#D9E3EC"/>
-    <text x="338" y="278" class="pillText" fill="#0E2235">Local-only dashboard</text>
-    <rect x="542" y="252" width="196" height="42" rx="21" fill="#FFFFFF" stroke="#D9E3EC"/>
-    <text x="573" y="278" class="pillText" fill="#0E2235">TypeScript + Rust</text>
+    <rect x="120" y="252" width="170" height="42" rx="21" fill="#FFFFFF" stroke="#D6E1EC"/>
+    <text x="154" y="278" class="pill">Public v0.1</text>
+
+    <rect x="306" y="252" width="220" height="42" rx="21" fill="#FFFFFF" stroke="#D6E1EC"/>
+    <text x="337" y="278" class="pill">Local-only dashboard</text>
+
+    <rect x="542" y="252" width="196" height="42" rx="21" fill="#FFFFFF" stroke="#D6E1EC"/>
+    <text x="573" y="278" class="pill">TypeScript + Rust</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="160" y="332" width="960" height="268" rx="28" fill="url(#panel)"/>
+    <rect x="160" y="332" width="960" height="280" rx="30" fill="url(#panel)"/>
   </g>
 
   <g>
-    <rect x="198" y="372" width="224" height="112" rx="22" fill="#10273C" stroke="#284864"/>
-    <text x="226" y="414" class="cardTitle">Full API surface</text>
-    <text x="226" y="446" class="cardText">OpenAPI in, all endpoints preserved.</text>
-    <text x="226" y="470" class="cardText">No blind truncation or hand-made MCP mapping.</text>
+    <text x="204" y="390" class="panelLabel">WHY FORGE</text>
+    <text x="204" y="446" class="panelTitle">From full API surface</text>
+    <text x="204" y="496" class="panelTitle">to agent-usable tool plan</text>
+    <text x="204" y="542" class="panelText">Keep coverage. Cut noise. Review the result before you ship it.</text>
   </g>
 
   <g>
-    <rect x="456" y="372" width="224" height="112" rx="22" fill="#12314A" stroke="#2E597A"/>
-    <text x="484" y="414" class="cardTitle">Curated tool plan</text>
-    <text x="484" y="446" class="cardText">Intent-aware grouping, overflow search,</text>
-    <text x="484" y="470" class="cardText">and reviewable tool contracts.</text>
+    <rect x="810" y="376" width="236" height="176" rx="26" fill="#D88A00"/>
+    <text x="858" y="450" class="metricBig">20</text>
+    <text x="859" y="478" class="metricLabel">TOOL TARGET</text>
+    <text x="858" y="520" class="metricText">A practical operating range for</text>
+    <text x="858" y="544" class="metricText">higher-signal MCP tool plans.</text>
   </g>
 
   <g>
-    <rect x="714" y="372" width="224" height="112" rx="22" fill="#153A55" stroke="#356789"/>
-    <text x="742" y="414" class="cardTitle">Safer shipping path</text>
-    <text x="742" y="446" class="cardText">Scanner, dashboard, CI templates,</text>
-    <text x="742" y="470" class="cardText">and generated runtime hardening.</text>
+    <rect x="204" y="570" width="250" height="26" rx="13" fill="#13314A"/>
+    <text x="225" y="588" class="stripText">OPENAPI -> UASF -> CURATION -> TARGETS</text>
   </g>
 
   <g>
-    <rect x="972" y="372" width="110" height="112" rx="22" fill="#D88A00"/>
-    <text x="997" y="422" class="metricValue">20</text>
-    <text x="997" y="446" class="metricLabel">TOOL TARGET</text>
-    <text x="997" y="472" class="smallText" fill="#FFF8E8">designed to stay inside an agent-friendly operating range</text>
-  </g>
-
-  <path d="M422 428H446" stroke="#8CB4D1" stroke-width="4" stroke-linecap="round"/>
-  <path d="M680 428H704" stroke="#8CB4D1" stroke-width="4" stroke-linecap="round"/>
-  <path d="M938 428H962" stroke="#8CB4D1" stroke-width="4" stroke-linecap="round"/>
-  <path d="M436 428L426 420V436L436 428Z" fill="#8CB4D1"/>
-  <path d="M694 428L684 420V436L694 428Z" fill="#8CB4D1"/>
-  <path d="M952 428L942 420V436L952 428Z" fill="#8CB4D1"/>
-
-  <g>
-    <text x="204" y="538" class="flowText">OpenAPI spec</text>
-    <text x="364" y="538" class="flowText">UASF normalization</text>
-    <text x="606" y="538" class="flowText">Tool curation</text>
-    <text x="824" y="538" class="flowText">Security review</text>
-    <text x="1016" y="538" class="flowText">MCP targets</text>
+    <rect x="160" y="640" width="960" height="1" fill="#DCE7F1" fill-opacity="0.24"/>
   </g>
 
   <g>
-    <path d="M322 532H350" stroke="#D88A00" stroke-width="4" stroke-linecap="round"/>
-    <path d="M562 532H590" stroke="#D88A00" stroke-width="4" stroke-linecap="round"/>
-    <path d="M778 532H806" stroke="#D88A00" stroke-width="4" stroke-linecap="round"/>
-    <path d="M982 532H1010" stroke="#D88A00" stroke-width="4" stroke-linecap="round"/>
+    <rect x="170" y="626" width="300" height="66" rx="22" fill="#10283D"/>
+    <text x="198" y="653" class="stripTitle">Full API surface in</text>
+    <text x="198" y="677" class="stripText">Start from the real spec, not a hand-trimmed subset.</text>
   </g>
 
   <g>
-    <rect x="198" y="548" width="262" height="30" rx="15" fill="#0F2B42"/>
-    <text x="216" y="568" class="smallText">parse -> analyze -> curate -> score -> generate</text>
+    <rect x="490" y="626" width="300" height="66" rx="22" fill="#12314A"/>
+    <text x="518" y="653" class="stripTitle">Curated plan out</text>
+    <text x="518" y="677" class="stripText">Group endpoints into tools an agent can actually navigate.</text>
+  </g>
 
-    <rect x="476" y="548" width="224" height="30" rx="15" fill="#0F2B42"/>
-    <text x="494" y="568" class="smallText">search_api + execute_overflow_operation</text>
-
-    <rect x="716" y="548" width="178" height="30" rx="15" fill="#0F2B42"/>
-    <text x="734" y="568" class="smallText">LLM + heuristics + CVE checks</text>
-
-    <rect x="910" y="548" width="172" height="30" rx="15" fill="#0F2B42"/>
-    <text x="928" y="568" class="smallText">dashboard + Docker + CI templates</text>
+  <g>
+    <rect x="810" y="626" width="300" height="66" rx="22" fill="#143650"/>
+    <text x="838" y="653" class="stripTitle">Review before shipping</text>
+    <text x="838" y="677" class="stripText">Dashboard, scanner, CI templates, and hardened runtimes.</text>
   </g>
 </svg>
