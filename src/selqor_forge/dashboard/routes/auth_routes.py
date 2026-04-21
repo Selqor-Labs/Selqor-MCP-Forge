@@ -18,7 +18,7 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 
-@router.get("/auth/config")
+@router.get("/auth/config")  # type: ignore[untyped-decorator, unused-ignore]
 def get_auth_config() -> JSONResponse:
     """Return capability metadata for the public local-only build."""
     return JSONResponse(status_code=200, content=auth_placeholder_config())
@@ -29,38 +29,38 @@ def get_auth_config() -> JSONResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/auth/me")
+@router.get("/auth/me")  # type: ignore[untyped-decorator, unused-ignore]
 def get_auth_me() -> JSONResponse:
     """Shared-user auth is not part of the local-only public build."""
     raise local_only_feature_error("auth")
 
 
-@router.get("/auth/context")
+@router.get("/auth/context")  # type: ignore[untyped-decorator, unused-ignore]
 def get_auth_context() -> JSONResponse:
     """Shared auth context is not available in the local-only public build."""
     raise local_only_feature_error("auth")
 
 
-@router.get("/users/me/onboarding-status")
+@router.get("/users/me/onboarding-status")  # type: ignore[untyped-decorator, unused-ignore]
 def get_onboarding_status() -> JSONResponse:
     """Onboarding is disabled in the local-only public build."""
     raise local_only_feature_error("onboarding")
 
 
-@router.get("/users/me/pending-invites")
+@router.get("/users/me/pending-invites")  # type: ignore[untyped-decorator, unused-ignore]
 def get_pending_invites() -> JSONResponse:
     """Team invites are disabled in the local-only public build."""
     raise local_only_feature_error("team_invites")
 
 
-@router.post("/users/me/invites/{invite_id}/accept")
+@router.post("/users/me/invites/{invite_id}/accept")  # type: ignore[untyped-decorator, unused-ignore]
 def accept_invite(invite_id: str) -> JSONResponse:
     """Team invites are disabled in the local-only public build."""
     del invite_id
     raise local_only_feature_error("team_invites")
 
 
-@router.post("/users/me/invites/{invite_id}/decline")
+@router.post("/users/me/invites/{invite_id}/decline")  # type: ignore[untyped-decorator, unused-ignore]
 def decline_invite(invite_id: str) -> JSONResponse:
     """Team invites are disabled in the local-only public build."""
     del invite_id

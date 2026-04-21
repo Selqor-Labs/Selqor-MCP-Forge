@@ -18,14 +18,14 @@ from selqor_forge.dashboard.middleware import local_only_feature_error
 router = APIRouter()
 
 
-@router.post("/organizations", status_code=201)
+@router.post("/organizations", status_code=201)  # type: ignore[untyped-decorator, unused-ignore]
 def create_organization(body: CreateOrgRequest) -> JSONResponse:
     """Organizations are not included in the local-only public build."""
     del body
     raise local_only_feature_error("organizations")
 
 
-@router.get("/organizations/check")
+@router.get("/organizations/check")  # type: ignore[untyped-decorator, unused-ignore]
 def check_org_availability() -> JSONResponse:
     """Organizations are not included in the local-only public build."""
     raise local_only_feature_error("organizations")
