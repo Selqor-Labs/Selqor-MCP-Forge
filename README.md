@@ -26,7 +26,7 @@
   <a href="#more-documentation">Docs</a>
 </p>
 
-![Selqor Forge hero infographic](docs/assets/forge-hero-infographic.svg)
+![Selqor Forge README banner](docs/assets/forge-banner.png)
 
 Selqor Forge turns your application's API specs into smaller, higher-signal MCP servers with smart and intelligently curated tools, then gives you a dashboard to manage integrations, auth, LLM configs, run history, and deployment prep.
 
