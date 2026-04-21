@@ -74,9 +74,9 @@ Selqor Forge turns your application's API specs into smaller, higher-signal MCP 
 
 ## Golden Path Demo
 
-**Dashboard**
+**Workflow**
 
-![Selqor Forge local-only dashboard settings view](docs/assets/dashboard-settings.png)
+![Selqor Forge golden path workflow](docs/assets/golden-path-flow.svg)
 
 **Fastest path to value**
 
