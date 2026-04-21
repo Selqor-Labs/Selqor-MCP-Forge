@@ -248,6 +248,63 @@ export default function Playground() {
       ) || null
     );
   }, [activeSession, availableIntegrations]);
+
+  // Unified sidebar list: real sessions + deployed integrations that have no
+  // session yet. A session is matched against its backing integration by
+  // name/id so disconnected rows can offer a one-click reconnect. Integrations
+  // already represented by a session are deduped so we don't render duplicates.
+  const mergedSessionItems = useMemo(() => {
+    const integrationByKey = new Map();
+    for (const int of availableIntegrations) {
+      if (int.integration_name) integrationByKey.set(int.integration_name, int);
+      if (int.integration_id) integrationByKey.set(int.integration_id, int);
+    }
+    const sessionNameSet = new Set(
+      sessions.map((s) => s.name || s.id).filter(Boolean),
+    );
+    const sessionItems = sessions.map((s) => {
+      // Prefer the session's persisted integration_id — it survives renames
+      // and manual edits. Fall back to name matching for legacy rows.
+      const matched =
+        (s.integration_id && integrationByKey.get(s.integration_id)) ||
+        integrationByKey.get(s.name) ||
+        integrationByKey.get(s.id) ||
+        null;
+      return {
+        key: `session:${s.id}`,
+        kind: "session",
+        status: s.status,
+        name: s.name || s.id,
+        transport: s.transport || "stdio",
+        toolsCount: s.tools_count || 0,
+        session: s,
+        integration: matched,
+      };
+    });
+    const integrationItems = availableIntegrations
+      .filter(
+        (int) =>
+          !sessionNameSet.has(int.integration_name) &&
+          !sessionNameSet.has(int.integration_id),
+      )
+      .map((int) => ({
+        key: `integration:${int.integration_id}`,
+        kind: "integration",
+        status: "not_connected",
+        name: int.integration_name || int.integration_id,
+        transport: int.connection?.transport || "stdio",
+        toolsCount: int.tool_count || 0,
+        integration: int,
+      }));
+    // Connectable items first (fastest path to useful state), then live
+    // sessions, then disconnected dead-ends.
+    const rank = (item) =>
+      item.status === "connected" ? 0 : item.status === "not_connected" ? 1 : 2;
+    return [...sessionItems, ...integrationItems].sort(
+      (a, b) => rank(a) - rank(b),
+    );
+  }, [sessions, availableIntegrations]);
+
   const schema =
     selectedToolDef?.inputSchema || selectedToolDef?.input_schema || null;
   const schemaFields = useMemo(() => summarizeSchema(schema), [schema]);
@@ -258,7 +315,10 @@ export default function Playground() {
     try {
       const [sessRes, intRes] = await Promise.all([
         fetchPlaygroundSessions(),
-        fetchAvailableIntegrations().catch(() => ({ integrations: [] })),
+        fetchAvailableIntegrations().catch((err) => {
+          console.warn("Failed to load available integrations:", err);
+          return { integrations: [] };
+        }),
       ]);
       const allSessions = sessRes.sessions || [];
       setSessions(allSessions);
@@ -345,23 +405,41 @@ export default function Playground() {
 
   async function handleDisconnect() {
     if (!disconnectTarget) return;
+    const targetId = disconnectTarget;
+    let alreadyGone = false;
     try {
-      await disconnectPlaygroundSession(disconnectTarget);
+      await disconnectPlaygroundSession(targetId);
       toast("Session disconnected");
-      if (activeSession?.id === disconnectTarget) {
-        setActiveSession(null);
-        setTools([]);
-        setHistory([]);
-        setSelectedTool(null);
-      }
-      setSessionHealth((prev) => {
-        const { [disconnectTarget]: _, ...rest } = prev;
-        return rest;
-      });
-      loadSessions();
     } catch (err) {
-      toast(err.message, "error");
+      // Backend returns 404 when the session is already gone in both the DB
+      // and the in-memory map. From the UI's perspective that's the desired
+      // end state, so clean up the stale row instead of leaving it clickable
+      // forever.
+      if (err?.status === 404) {
+        alreadyGone = true;
+        toast("Session was already gone — cleared from the list");
+      } else {
+        toast(err.message, "error");
+        setDisconnectTarget(null);
+        return;
+      }
     }
+    if (activeSession?.id === targetId) {
+      setActiveSession(null);
+      setTools([]);
+      setHistory([]);
+      setSelectedTool(null);
+    }
+    setSessionHealth((prev) => {
+      const { [targetId]: _, ...rest } = prev;
+      return rest;
+    });
+    if (alreadyGone) {
+      // Optimistically drop the row so the user isn't stuck re-clicking delete
+      // while loadSessions() re-fetches.
+      setSessions((prev) => prev.filter((s) => s.id !== targetId));
+    }
+    loadSessions();
     setDisconnectTarget(null);
   }
 
@@ -583,7 +661,7 @@ export default function Playground() {
           </Box>
 
           <Box sx={{ flex: 1, overflow: "auto" }}>
-            {sessions.length === 0 && availableIntegrations.length === 0 ? (
+            {mergedSessionItems.length === 0 ? (
               <Box
                 sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}
               >
@@ -612,86 +690,65 @@ export default function Playground() {
                 </Alert>
               </Box>
             ) : (
-              <>
-                {availableIntegrations.length > 0 && (
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      borderBottom: "1px solid",
-                      borderColor: "divider",
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      fontWeight={600}
-                      color="text.secondary"
-                      sx={{ mb: 0.75, display: "block" }}
-                    >
-                      QUICK CONNECT
-                    </Typography>
-                    <Stack spacing={0.75}>
-                      {availableIntegrations.map((int) => (
-                        <Button
-                          key={int.integration_id}
-                          variant="outlined"
-                          size="small"
-                          fullWidth
-                          onClick={() => handleAutoConnect(int)}
-                          disabled={connecting === int.integration_id}
-                          sx={{
-                            justifyContent: "flex-start",
-                            textAlign: "left",
-                            py: 0.5,
-                          }}
-                        >
-                          <Stack
-                            direction="column"
-                            spacing={0}
-                            sx={{ flex: 1, minWidth: 0 }}
-                          >
-                            <Typography variant="body2" fontWeight={500} noWrap>
-                              {int.integration_name}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              noWrap
-                            >
-                              {int.connection.transport === "http"
-                                ? int.connection.server_url
-                                : "stdio"}
-                            </Typography>
-                          </Stack>
-                          {connecting === int.integration_id && (
-                            <CircularProgress size={14} sx={{ ml: 1 }} />
-                          )}
-                        </Button>
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
-                <List disablePadding dense>
-                  {sessions.map((s) => {
-                    const isConnected = s.status === "connected";
-                    return (
-                    <React.Fragment key={s.id}>
+              <List disablePadding dense>
+                {mergedSessionItems.map((item) => {
+                  const isConnected = item.status === "connected";
+                  const isDisconnected = item.status === "disconnected";
+                  const isNotConnected = item.status === "not_connected";
+                  const s = item.session;
+                  const integration = item.integration;
+                  const canReconnect = isDisconnected && !!integration;
+                  const isConnectingThis =
+                    (isNotConnected || canReconnect) &&
+                    connecting === integration?.integration_id;
+                  const dotColor = isConnected
+                    ? "success.main"
+                    : isDisconnected
+                      ? "error.main"
+                      : "text.disabled";
+                  const rowOpacity = isConnected
+                    ? 1
+                    : canReconnect || isNotConnected
+                      ? 0.85
+                      : 0.55;
+                  const rowCursor =
+                    isDisconnected && !canReconnect ? "not-allowed" : "pointer";
+
+                  const handleRowClick = () => {
+                    if (isConnected) {
+                      selectSession(s);
+                      return;
+                    }
+                    if (isDisconnected) {
+                      if (canReconnect && !isConnectingThis) {
+                        handleAutoConnect(integration);
+                      } else {
+                        toast(
+                          "Session is disconnected and has no backing integration. Delete it and reconnect from the Connect button.",
+                          "error",
+                        );
+                      }
+                      return;
+                    }
+                    if (isNotConnected && !isConnectingThis) {
+                      handleAutoConnect(integration);
+                    }
+                  };
+
+                  return (
+                    <React.Fragment key={item.key}>
                       <ListItemButton
-                        selected={activeSession?.id === s.id}
-                        onClick={() => {
-                          if (!isConnected) {
-                            toast(
-                              "Session is disconnected. Delete it and reconnect from the Connect button.",
-                              "error",
-                            );
-                            return;
-                          }
-                          selectSession(s);
-                        }}
+                        selected={
+                          item.kind === "session" &&
+                          activeSession?.id === s?.id
+                        }
+                        onClick={handleRowClick}
+                        disabled={isConnectingThis}
                         sx={{
-                          pr: 5,
+                          pr: item.kind === "session" ? 5 : 2,
                           position: "relative",
-                          opacity: isConnected ? 1 : 0.55,
-                          cursor: isConnected ? "pointer" : "not-allowed",
+                          opacity: rowOpacity,
+                          cursor: rowCursor,
                         }}
                       >
                         <ListItemText
@@ -705,12 +762,15 @@ export default function Playground() {
                                   height: 7,
                                   borderRadius: "50%",
                                   flexShrink: 0,
-                                  bgcolor: isConnected ? "success.main" : "error.main",
+                                  bgcolor: dotColor,
                                 }}
                               />
                               <Typography variant="body2" fontWeight={500} noWrap>
-                                {s.name || s.id}
+                                {item.name}
                               </Typography>
+                              {isConnectingThis && (
+                                <CircularProgress size={12} sx={{ ml: 0.5 }} />
+                              )}
                             </Stack>
                           }
                           secondary={
@@ -724,9 +784,9 @@ export default function Playground() {
                                 variant="caption"
                                 color="text.secondary"
                               >
-                                {s.transport}
+                                {item.transport}
                               </Typography>
-                              {!isConnected && (
+                              {isDisconnected && (
                                 <Typography
                                   variant="caption"
                                   color="error.main"
@@ -735,63 +795,85 @@ export default function Playground() {
                                   · disconnected
                                 </Typography>
                               )}
-                              <Chip
-                                label={`${s.tools_count || 0} tools`}
-                                size="small"
-                                sx={{ height: 16, fontSize: "0.65rem" }}
-                              />
+                              {canReconnect && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  · click to reconnect
+                                </Typography>
+                              )}
+                              {isNotConnected && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  fontWeight={600}
+                                >
+                                  · not connected
+                                </Typography>
+                              )}
+                              {item.kind === "session" && (
+                                <Chip
+                                  label={`${item.toolsCount} tools`}
+                                  size="small"
+                                  sx={{ height: 16, fontSize: "0.65rem" }}
+                                />
+                              )}
                             </Stack>
                           }
                         />
-                        <Tooltip
-                          title={
-                            sessionHealth[s.id]
-                              ? sessionHealth[s.id].healthy
-                                ? "Healthy — click to recheck"
-                                : `Unhealthy: ${sessionHealth[s.id].reason || "unknown"} — click to recheck`
-                              : "Check health"
-                          }
-                        >
-                          <IconButton
-                            size="small"
-                            color={
-                              sessionHealth[s.id]
-                                ? sessionHealth[s.id].healthy
-                                  ? "success"
-                                  : "error"
-                                : "default"
-                            }
-                            sx={{ position: "absolute", top: 6, right: 30 }}
-                            disabled={!!healthChecking[s.id]}
-                            onClick={(e) => handleSessionHealthCheck(s.id, e)}
-                          >
-                            {healthChecking[s.id] ? (
-                              <CircularProgress size={12} />
-                            ) : (
-                              <MonitorHeartOutlinedIcon sx={{ fontSize: 14 }} />
-                            )}
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete session">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            sx={{ position: "absolute", top: 6, right: 6 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDisconnectTarget(s.id);
-                            }}
-                          >
-                            <DeleteOutlineIcon sx={{ fontSize: 14 }} />
-                          </IconButton>
-                        </Tooltip>
+                        {item.kind === "session" && (
+                          <>
+                            <Tooltip
+                              title={
+                                sessionHealth[s.id]
+                                  ? sessionHealth[s.id].healthy
+                                    ? "Healthy — click to recheck"
+                                    : `Unhealthy: ${sessionHealth[s.id].reason || "unknown"} — click to recheck`
+                                  : "Check health"
+                              }
+                            >
+                              <IconButton
+                                size="small"
+                                color={
+                                  sessionHealth[s.id]
+                                    ? sessionHealth[s.id].healthy
+                                      ? "success"
+                                      : "error"
+                                    : "default"
+                                }
+                                sx={{ position: "absolute", top: 6, right: 30 }}
+                                disabled={!!healthChecking[s.id]}
+                                onClick={(e) => handleSessionHealthCheck(s.id, e)}
+                              >
+                                {healthChecking[s.id] ? (
+                                  <CircularProgress size={12} />
+                                ) : (
+                                  <MonitorHeartOutlinedIcon sx={{ fontSize: 14 }} />
+                                )}
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete session">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                sx={{ position: "absolute", top: 6, right: 6 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDisconnectTarget(s.id);
+                                }}
+                              >
+                                <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                       </ListItemButton>
                       <Divider component="li" />
                     </React.Fragment>
-                    );
-                  })}
-                </List>
-              </>
+                  );
+                })}
+              </List>
             )}
           </Box>
         </Paper>

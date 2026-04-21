@@ -424,6 +424,7 @@ async def list_sessions(ctx: Ctx) -> dict:
             tools = s.tools or []
             sessions_list.append({
                 "id": s.id,
+                "integration_id": s.integration_id,
                 "name": s.name or "",
                 "transport": s.transport or "stdio",
                 "status": live_status,
