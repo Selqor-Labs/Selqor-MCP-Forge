@@ -4,6 +4,31 @@ Stop dumping endpoints into your agent. Curate them.
 
 Selqor Forge turns your application's API specs into smaller, higher-signal MCP servers with smart and intelligently curated tools, then gives you a dashboard to manage integrations, auth, LLM configs, run history, and deployment prep.
 
+## Public v1 Support Matrix
+
+- Supported: GitHub source checkout, Docker demo stack, local single-user dashboard, TypeScript targets, Rust `stdio`, CLI generation, CLI scanning
+- Experimental: Rust HTTP transport
+- Not in public v1: shared dashboard auth, organizations, team management, PyPI install
+
+## Known Limitations
+
+- The dashboard is intentionally local-only in this public build.
+- Shared-user auth, organization management, and team invites are disabled and return explicit `501 LOCAL_ONLY_BUILD` responses.
+- PostgreSQL-backed fresh installs are supported, but file-state-to-Postgres seeding is still not implemented.
+- Generated CI/CD templates install Selqor Forge from a pinned GitHub commit tarball, not from PyPI.
+
+## Golden Path Demo
+
+![Selqor Forge local-only dashboard settings view](docs/assets/dashboard-settings.png)
+
+1. Clone the repo and run `pip install -e .[dev]`
+2. Build the frontend with `cd src/dashboard/frontend && npm ci && npm run build`
+3. Start the dashboard with `selqor-forge dashboard --state ./dashboard`
+4. Create an integration from `https://petstore.swagger.io/v2/swagger.json`
+5. Run analysis, inspect the tool plan, then generate a TypeScript target
+
+See [docs/RELEASE_MATRIX.md](docs/RELEASE_MATRIX.md) for the release truth table used for public v1.
+
 ## Why This Exists
 
 Raw tool catalogs get expensive and noisy fast:
@@ -76,7 +101,7 @@ selqor-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
 - Starts FastAPI backend on http://127.0.0.1:8787
 - Serves the React frontend
 - Creates a `./dashboard` directory for local state (integrations, runs, configs)
-- Prints warnings about security (placeholder auth, local-only binding)
+- Prints a local-only safety banner if you try to use it outside the intended single-user workflow
 
 ### Step 4: Open in Your Browser
 
@@ -258,7 +283,7 @@ The repo includes a checked-in Petstore example with both the curated outputs an
 
 ## Authentication Status
 
-Selqor Forge does **not** ship with a production auth system. The built-in dashboard auth hook is intentionally a placeholder, and auth/org routes should be treated as integration points rather than ready-made multi-tenant features.
+Selqor Forge does **not** ship with a production shared-user auth system in this public build. The dashboard is intentionally positioned as a local-only single-user tool, and shared auth/org/team routes return explicit local-only disabled responses.
 
 Use [docs/AUTH_MODULE_INTEGRATION.md](docs/AUTH_MODULE_INTEGRATION.md) before exposing the dashboard to any shared or untrusted network.
 
@@ -391,8 +416,16 @@ MINIO_SECRET_KEY=
 MINIO_REGION=us-east-1
 MINIO_PREFIX=selqor-forge
 
-# Optional LLM provider credentials (configure via Dashboard → LLM Config)
+# CLI and CI can use environment-driven LLM settings directly.
+# The dashboard scanner uses Dashboard -> LLM Config instead.
+# Minimal Anthropic setup:
 ANTHROPIC_API_KEY=
+# Generic or Mistral-compatible CLI setup:
+FORGE_LLM_PROVIDER=
+FORGE_LLM_MODEL=
+FORGE_LLM_API_KEY=
+FORGE_LLM_BASE_URL=
+MISTRAL_API_KEY=
 
 # Optional generated-server auth helpers
 FORGE_STATIC_HEADERS_JSON={}
@@ -446,7 +479,7 @@ This starts:
 - **Dashboard:** http://localhost:8787
 - **PostgreSQL:** localhost:5432
 
-**Note:** The Dockerfile and docker-compose.yml are included for local development. For production, review and customize them for your security requirements.
+**Note:** The Dockerfile and `docker-compose.yml` are intended for local demo and smoke testing. Review and customize them before any broader deployment.
 
 ---
 
@@ -472,7 +505,7 @@ selqor-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
 ```bash
 docker build -t selqor-forge:latest .
 docker run -p 8787:8787 \
-  -v /data/forge-state:/forge-state \
+  -v /data/forge-state:/home/selqor/dashboard \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   selqor-forge:latest
 ```

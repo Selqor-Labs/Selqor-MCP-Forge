@@ -15,7 +15,12 @@ from selqor_forge.models import (
     UasfSurface,
 )
 from selqor_forge.pipeline.analyze import heuristic_analysis
-from selqor_forge.pipeline.curate import curate
+from selqor_forge.pipeline.curate import (
+    _ensure_endpoint_coverage,
+    _execute_overflow_operation_tool,
+    _search_api_tool,
+    curate,
+)
 
 
 def _ep(
@@ -274,18 +279,104 @@ class TestFullPipelineIntegration:
             covered.update(t.covered_endpoints)
         assert covered >= {ep.id for ep in surface.endpoints}
 
-    def test_single_domain_api_gets_lifecycle_tool(self):
-        """A tiny 3-endpoint API should get a single manage_ tool."""
-        surface = _surface([
-            _ep("list", "GET", "/items", "items", EndpointIntent.READ),
-            _ep("create", "POST", "/items", "items", EndpointIntent.CREATE),
-            _ep("get", "GET", "/items/{id}", "items", EndpointIntent.READ),
-        ])
-        plan = heuristic_analysis(surface)
-        config = AppConfig().with_anthropic_enabled(False)
-        curated = curate(surface, config, plan)
+def test_single_domain_api_gets_lifecycle_tool():
+    """A tiny 3-endpoint API should get a single manage_ tool."""
+    surface = _surface([
+        _ep("list", "GET", "/items", "items", EndpointIntent.READ),
+        _ep("create", "POST", "/items", "items", EndpointIntent.CREATE),
+        _ep("get", "GET", "/items/{id}", "items", EndpointIntent.READ),
+    ])
+    plan = heuristic_analysis(surface)
+    config = AppConfig().with_anthropic_enabled(False)
+    curated = curate(surface, config, plan)
 
-        non_custom = [t for t in curated.tools if t.name != "custom_request"]
-        assert any("manage_items" in t.name for t in non_custom), (
-            f"Expected manage_items, got: {[t.name for t in non_custom]}"
-        )
+    non_custom = [t for t in curated.tools if t.name != "custom_request"]
+    assert any("manage_items" in t.name for t in non_custom), (
+        f"Expected manage_items, got: {[t.name for t in non_custom]}"
+    )
+
+
+def test_custom_request_is_not_included_by_default():
+    surface = _surface([
+        _ep("list", "GET", "/items", "items", EndpointIntent.READ),
+        _ep("create", "POST", "/items", "items", EndpointIntent.CREATE),
+    ])
+    plan = heuristic_analysis(surface)
+    config = AppConfig().with_anthropic_enabled(False)
+    curated = curate(surface, config, plan)
+
+    assert all(tool.name != "custom_request" for tool in curated.tools)
+
+
+def test_custom_request_can_be_enabled_explicitly():
+    surface = _surface([
+        _ep("list", "GET", "/items", "items", EndpointIntent.READ),
+        _ep("create", "POST", "/items", "items", EndpointIntent.CREATE),
+    ])
+    plan = heuristic_analysis(surface)
+    config = AppConfig().with_anthropic_enabled(False).model_copy(
+        update={"include_custom_request_tool": True}
+    )
+    curated = curate(surface, config, plan)
+
+    assert any(tool.name == "custom_request" for tool in curated.tools)
+
+
+def test_search_api_description_does_not_reference_custom_request():
+    surface = _surface([
+        _ep("get_invoice", "GET", "/invoices/{id}", "invoices", EndpointIntent.READ, summary="Get invoice"),
+        _ep("post_refund", "POST", "/refunds", "refunds", EndpointIntent.CREATE, summary="Create refund"),
+    ])
+
+    tool = _search_api_tool(surface, ["get_invoice", "post_refund"])
+
+    assert "custom_request" not in tool.description
+    assert "Use execute_overflow_operation with an explicit operation id to execute one of those matches." in tool.description
+    assert tool.input_schema["required"] == ["query"]
+    assert "operation" not in tool.input_schema["properties"]
+
+
+def test_execute_overflow_operation_requires_operation():
+    surface = _surface([
+        _ep("get_invoice", "GET", "/invoices/{id}", "invoices", EndpointIntent.READ, summary="Get invoice"),
+        _ep("post_refund", "POST", "/refunds", "refunds", EndpointIntent.CREATE, summary="Create refund"),
+    ])
+
+    tool = _execute_overflow_operation_tool(surface, ["get_invoice", "post_refund"])
+
+    assert tool.name == "execute_overflow_operation"
+    assert tool.input_schema["required"] == ["operation"]
+    assert tool.input_schema["properties"]["operation"]["enum"] == ["get_invoice", "post_refund"]
+
+
+def test_single_endpoint_tools_omit_operation_schema():
+    surface = _surface([
+        _ep("get_invoice", "GET", "/invoices/{id}", "invoices", EndpointIntent.READ, summary="Get invoice"),
+    ])
+    plan = heuristic_analysis(surface)
+    config = AppConfig().with_anthropic_enabled(False)
+    curated = curate(surface, config, plan)
+
+    single_tool = next(tool for tool in curated.tools if tool.name != "custom_request")
+    assert "operation" not in single_tool.input_schema["properties"]
+    assert "operation" not in single_tool.input_schema.get("required", [])
+
+
+def test_ensure_endpoint_coverage_rebuilds_absorbed_tool_schema():
+    shared_id = ApiParameter(name="invoiceId", location="path", required=True, schema_={"type": "string"})
+    shared_status = ApiParameter(name="status", location="query", required=False, schema_={"type": "string"})
+    surface = _surface([
+        _ep("list_invoices", "GET", "/invoices", "invoices", EndpointIntent.READ, parameters=[shared_status]),
+        _ep("get_invoice", "GET", "/invoices/{invoiceId}", "invoices", EndpointIntent.READ, parameters=[shared_id]),
+    ])
+    tools = [
+        _execute_overflow_operation_tool(surface, ["list_invoices"]),
+    ]
+
+    _ensure_endpoint_coverage(surface, tools, [])
+
+    rebuilt = tools[0]
+    assert rebuilt.covered_endpoints == ["get_invoice", "list_invoices"]
+    assert rebuilt.input_schema["required"] == ["operation"]
+    assert rebuilt.input_schema["properties"]["operation"]["enum"] == ["get_invoice", "list_invoices"]
+    assert "invoiceId" in rebuilt.input_schema["properties"]["path_params"]["properties"]

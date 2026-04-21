@@ -45,6 +45,21 @@ class HeuristicRuleEngine(RuleEngine):
 
     def __init__(self):
         self.rules = self._init_security_rules()
+        self.generated_artifact_names = {
+            "analysis-plan.json",
+            "forge.report.json",
+            "plan.json",
+            "tool-plan.json",
+            "uasf.json",
+        }
+        self.lockfile_names = {
+            "cargo.lock",
+            "npm-shrinkwrap.json",
+            "package-lock.json",
+            "pnpm-lock.yaml",
+            "pnpm-lock.yml",
+            "yarn.lock",
+        }
 
     def _init_security_rules(self) -> dict[str, Rule]:
         """Initialize built-in security rules."""
@@ -321,6 +336,9 @@ class HeuristicRuleEngine(RuleEngine):
             if file_path.suffix not in extensions_to_scan:
                 continue
 
+            if not self._should_scan_file(file_path):
+                continue
+
             try:
                 content = file_path.read_text(encoding="utf-8", errors="ignore")
                 relative_path = str(file_path.relative_to(dir_path))
@@ -331,6 +349,15 @@ class HeuristicRuleEngine(RuleEngine):
                 continue
 
         return findings
+
+    def _should_scan_file(self, file_path: Path) -> bool:
+        """Return True when a file should be included in heuristic code scans."""
+        name = file_path.name.lower()
+        if name in self.generated_artifact_names:
+            return False
+        if name in self.lockfile_names:
+            return False
+        return True
 
 
 class SemgrepRuleEngine(RuleEngine):

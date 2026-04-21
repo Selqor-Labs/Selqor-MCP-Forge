@@ -4,6 +4,7 @@
 """Pipeline unit/integration tests using a local minimal OpenAPI spec."""
 
 import json
+from datetime import datetime, timezone
 
 import pytest
 import yaml
@@ -272,6 +273,8 @@ def test_generate_ts_artifacts(spec_file, tmp_state_dir):
 
     assert (out / "typescript-server" / "package.json").exists()
     assert (out / "typescript-server" / "src" / "index.ts").exists()
+    index_source = (out / "typescript-server" / "src" / "index.ts").read_text(encoding="utf-8")
+    assert 'join(__dirname, "..", "src", "plan.json")' in index_source
 
 
 def test_generate_rust_artifacts(spec_file, tmp_state_dir):
@@ -327,6 +330,23 @@ def test_generate_tool_plan_schema(spec_file, tmp_state_dir):
     assert "name" in tool
     assert "description" in tool
     assert "covered_endpoints" in tool
+
+
+def test_generate_write_json_serializes_datetime_values(tmp_state_dir):
+    from pydantic import BaseModel
+
+    class Payload(BaseModel):
+        created_at: datetime
+
+    out = tmp_state_dir / "datetime.json"
+    payload = Payload(created_at=datetime(2026, 4, 20, 19, 0, tzinfo=timezone.utc))
+
+    generate._write_json(out, payload)
+
+    with open(out, encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data["created_at"] == "2026-04-20T19:00:00Z"
 
 
 # ---------------------------------------------------------------------------

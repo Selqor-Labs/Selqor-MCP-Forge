@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -309,7 +310,7 @@ def analyze_with_override_and_options(
             agent_prompt=agent_prompt,
         )
 
-    api_key = ""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
         logger.warning(
             "no LLM credentials available on this code path; using heuristic analysis"
@@ -318,8 +319,8 @@ def analyze_with_override_and_options(
             surface,
             [
                 "No LLM credentials were available; used heuristic analysis instead. "
-                "In the dashboard, configure a provider under LLM Config page. "
-                "API key configuration is now managed entirely through the dashboard."
+                "Set ANTHROPIC_API_KEY for CLI usage or configure a provider under "
+                "Dashboard > LLM Config for dashboard-driven analysis."
             ],
             agent_prompt=agent_prompt,
         )

@@ -13,6 +13,8 @@ from selqor_forge.dashboard.context import now_utc_string
 from selqor_forge.dashboard.db import init_db
 from selqor_forge.dashboard.repositories import LLMConfigRepository
 from selqor_forge.dashboard.secrets import DashboardSecretManager
+from selqor_forge.models import AnalysisSource, AnalysisToolCandidate, UasfSurface
+from selqor_forge.pipeline import analyze as analyze_module
 
 
 MINIMAL_SPEC = {
@@ -86,3 +88,31 @@ def test_generate_without_state_does_not_create_dashboard_dir(tmp_state_dir, mon
 
     assert result.exit_code == 0, result.output
     assert not (tmp_state_dir / "dashboard").exists()
+
+
+def test_default_analysis_uses_anthropic_env_key(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
+    captured: dict = {}
+
+    def fake_runner(**kwargs):
+        captured.update(kwargs)
+        return analyze_module.AnalysisPlan(
+            source=AnalysisSource.ANTHROPIC,
+            tools=[
+                AnalysisToolCandidate(
+                    name="listPets",
+                    description="List pets",
+                    confidence=0.9,
+                    endpoint_ids=[],
+                )
+            ],
+            warnings=[],
+        )
+
+    monkeypatch.setattr(analyze_module, "_run_batched_runtime_analysis", fake_runner)
+
+    surface = UasfSurface(title="Pets API", version="1.0.0", source="test", endpoints=[])
+    plan = analyze_module.analyze(surface, analyze_module.AppConfig())
+
+    assert plan.source == AnalysisSource.ANTHROPIC
+    assert captured["provider"] == "anthropic"

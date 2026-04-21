@@ -39,7 +39,7 @@ class AnthropicConfig(BaseModel):
 
 class AppConfig(BaseModel):
     target_tool_count: ToolCountBounds = ToolCountBounds()
-    include_custom_request_tool: bool = True
+    include_custom_request_tool: bool = False
     output_targets: list[OutputTarget] = [OutputTarget.TYPESCRIPT, OutputTarget.RUST]
     default_transport: TransportMode = TransportMode.STDIO
     anthropic: AnthropicConfig = AnthropicConfig()

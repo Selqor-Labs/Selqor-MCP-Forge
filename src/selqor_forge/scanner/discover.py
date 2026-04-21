@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
+from packaging.requirements import InvalidRequirement, Requirement
 from typing import Any
 from urllib.parse import urlparse
 
@@ -149,11 +150,16 @@ class MCPDiscovery:
     ) -> MCPManifest:
         """Parse TypeScript/Node.js MCP server."""
         pkg = json.loads(package_json.read_text())
+        package_lock = base_path / "package-lock.json"
 
         # Extract dependencies
         dependencies = {}
         dependencies.update(pkg.get("dependencies", {}))
         dependencies.update(pkg.get("devDependencies", {}))
+        dependencies = MCPDiscovery._resolve_node_dependency_versions(
+            dependencies,
+            package_lock,
+        )
 
         # Try to detect transport from package.json scripts or mcp.json
         transport = TransportType.STDIO
@@ -172,6 +178,33 @@ class MCPDiscovery:
             dependencies=dependencies,
             raw_manifest=pkg,
         )
+
+    @staticmethod
+    def _resolve_node_dependency_versions(
+        dependencies: dict[str, Any],
+        package_lock: Path,
+    ) -> dict[str, str]:
+        """Prefer exact installed Node package versions from package-lock.json."""
+        resolved = {name: str(version) for name, version in dependencies.items()}
+
+        if not package_lock.exists():
+            return resolved
+
+        try:
+            lock_data = json.loads(package_lock.read_text(encoding="utf-8"))
+        except Exception:
+            return resolved
+
+        packages = lock_data.get("packages")
+        if not isinstance(packages, dict):
+            return resolved
+
+        for name in list(resolved.keys()):
+            lock_entry = packages.get(f"node_modules/{name}")
+            if isinstance(lock_entry, dict) and isinstance(lock_entry.get("version"), str):
+                resolved[name] = lock_entry["version"]
+
+        return resolved
 
     @staticmethod
     async def _discover_rust_server(
@@ -226,14 +259,17 @@ class MCPDiscovery:
         project = pyproject.get("project", {})
         dependencies = {}
 
-        # Extract dependencies from dependencies or requires fields
+        # Extract dependencies using PEP 508 parsing so versioned requirements,
+        # extras, and markers do not corrupt package names.
         for dep_str in project.get("dependencies", []):
-            # Parse "package==1.0.0" format
-            if "==" in dep_str:
-                name, version = dep_str.split("==", 1)
-                dependencies[name.strip()] = version.strip()
-            else:
+            try:
+                requirement = Requirement(dep_str)
+            except InvalidRequirement:
                 dependencies[dep_str.split("[")[0].strip()] = "*"
+                continue
+
+            specifier = str(requirement.specifier).strip() or "*"
+            dependencies[requirement.name] = specifier
 
         return MCPManifest(
             discovery_method=DiscoveryMethod.LOCAL_DIRECTORY,

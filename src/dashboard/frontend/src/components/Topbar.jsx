@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -38,24 +39,19 @@ function getTitle(pathname) {
 
 export default function Topbar() {
   const location = useLocation();
+  const authConfig = useStore((s) => s.authConfig);
   const { theme, toggleTheme, toggleSidebar, setSidebarHovered, sidebarHovered } = useStore();
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
 
-  // Global keyboard shortcuts (Feature 7 polish). ⌘/Ctrl+Shift+L toggles
-  // theme; ⌘/Ctrl+Shift+R reloads. Shift avoids clashing with browser
-  // defaults (Ctrl+L focuses the URL bar, Ctrl+R reloads the tab).
   useHotkey('mod+shift+l', toggleTheme);
   useHotkey('mod+shift+r', () => window.location.reload());
 
-  // Brand area width mirrors sidebar collapsed/expanded state
   const brandWidth = isMobile ? 56 : (sidebarHovered ? DRAWER_WIDTH : DRAWER_COLLAPSED);
 
   return (
     <AppBar position="sticky" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
       <Toolbar variant="dense" disableGutters sx={{ minHeight: 48 }}>
-
-        {/* ── Brand area — mirrors sidebar width ── */}
         <Box
           onMouseEnter={() => !isMobile && setSidebarHovered(true)}
           onMouseLeave={() => !isMobile && setSidebarHovered(false)}
@@ -102,10 +98,8 @@ export default function Topbar() {
           )}
         </Box>
 
-        {/* ── Vertical divider joining sidebar ── */}
         <Divider orientation="vertical" flexItem sx={{ my: 0 }} />
 
-        {/* ── Page title — flush to start of content area ── */}
         <Typography
           variant="h6"
           fontWeight={600}
@@ -115,20 +109,30 @@ export default function Topbar() {
           {getTitle(location.pathname)}
         </Typography>
 
-        {/* ── Actions ── */}
+        {authConfig?.local_only && (
+          <Tooltip title={authConfig.message}>
+            <Chip
+              label="Local-only"
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ mr: 1, display: { xs: 'none', sm: 'inline-flex' } }}
+            />
+          </Tooltip>
+        )}
+
         <Box sx={{ display: 'flex', gap: 0.5, pr: 1 }}>
-          <Tooltip title="Refresh page (⌘/Ctrl + Shift + R)">
+          <Tooltip title="Refresh page (Ctrl + Shift + R)">
             <IconButton size="small" onClick={() => window.location.reload()}>
               <RefreshIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title={`${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} (⌘/Ctrl + Shift + L)`}>
+          <Tooltip title={`${theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} (Ctrl + Shift + L)`}>
             <IconButton size="small" onClick={toggleTheme}>
               {theme === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
             </IconButton>
           </Tooltip>
         </Box>
-
       </Toolbar>
     </AppBar>
   );

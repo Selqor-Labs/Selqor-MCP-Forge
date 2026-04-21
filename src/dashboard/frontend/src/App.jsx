@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
@@ -11,6 +11,8 @@ import Scanner from './pages/Scanner';
 import CiCd from './pages/CiCd';
 import Monitoring from './pages/Monitoring';
 import Settings from './pages/Settings';
+import useStore from './store/useStore';
+import { fetchAuthConfig } from './api';
 
 function AppRoutes() {
   return (
@@ -38,6 +40,30 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const toast = useStore((s) => s.toast);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAuthConfig() {
+      try {
+        const authConfig = await fetchAuthConfig();
+        if (!cancelled) {
+          useStore.setState({ authConfig });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast(err.message, 'error');
+        }
+      }
+    }
+
+    loadAuthConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
+
   return (
     <ErrorBoundary>
       <AppRoutes />

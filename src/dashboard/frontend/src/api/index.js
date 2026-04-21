@@ -2,6 +2,16 @@ const JSON_HEADERS = { 'content-type': 'application/json' };
 const API_TIMEOUT_MS = 15000;
 const LONG_TIMEOUT_MS = 45000;
 
+function extractDetailMessage(detail) {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return undefined;
+  if (detail && typeof detail === 'object') {
+    if (typeof detail.message === 'string') return detail.message;
+    if (typeof detail.detail === 'string') return detail.detail;
+  }
+  return undefined;
+}
+
 function withTimeout(options = {}) {
   if (options.signal) {
     return { options, cleanup: () => {} };
@@ -38,7 +48,7 @@ export async function api(path, options) {
             if (!fieldErrors[field]) fieldErrors[field] = entry.msg || 'Invalid value';
           }
         } else {
-          message = parsed.detail || parsed.error || parsed.message || message;
+          message = extractDetailMessage(parsed.detail) || parsed.error || parsed.message || message;
         }
         if (typeof message !== 'string') message = JSON.stringify(message);
       } catch (_) {}
@@ -80,6 +90,7 @@ export async function apiText(path, options) {
 
 // Dashboard
 export const fetchDashboard = () => api('/api/dashboard');
+export const fetchAuthConfig = () => api('/api/auth/config');
 
 // Integrations
 export const fetchIntegrations = () => api('/api/integrations');
