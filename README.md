@@ -26,7 +26,7 @@
   <a href="#more-documentation">Docs</a>
 </p>
 
-![Selqor Forge hero diagram](docs/assets/forge-hero.svg)
+![Selqor Forge hero animation](docs/assets/forge-hero.gif)
 
 Selqor Forge turns your application's API specs into smaller, higher-signal MCP servers with smart and intelligently curated tools, then gives you a dashboard to manage integrations, auth, LLM configs, run history, and deployment prep.
 
@@ -76,7 +76,7 @@ Selqor Forge turns your application's API specs into smaller, higher-signal MCP 
 
 **Workflow**
 
-![Selqor Forge golden path workflow](docs/assets/golden-path-flow.svg)
+![Selqor Forge golden path workflow animation](docs/assets/golden-path-flow.gif)
 
 **Fastest path to value**
 
