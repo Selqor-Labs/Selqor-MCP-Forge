@@ -1,0 +1,97 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="80" x2="1180" y2="660" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7FAFC"/>
+      <stop offset="1" stop-color="#E9F1F8"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="150" y1="176" x2="1130" y2="568" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0E2235"/>
+      <stop offset="1" stop-color="#17364F"/>
+    </linearGradient>
+    <filter id="shadow" x="110" y="142" width="1060" height="470" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="20"/>
+      <feGaussianBlur stdDeviation="20"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.0588 0 0 0 0 0.1333 0 0 0 0 0.2078 0 0 0 0.16 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+    <style>
+      .eyebrow { font: 700 14px 'Segoe UI', Arial, sans-serif; letter-spacing: 0.20em; fill: #D88A00; }
+      .title { font: 700 36px 'Segoe UI', Arial, sans-serif; fill: #0B1825; }
+      .subtitle { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #45607A; }
+      .panelLabel { font: 700 13px 'Segoe UI', Arial, sans-serif; letter-spacing: 0.14em; fill: #8FB0CA; }
+      .panelTitle { font: 700 40px 'Segoe UI', Arial, sans-serif; fill: #F7FAFC; }
+      .panelText { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #D1DDE8; }
+      .stepTitle { font: 700 19px 'Segoe UI', Arial, sans-serif; fill: #F2F7FB; }
+      .stepText { font: 400 14px 'Segoe UI', Arial, sans-serif; fill: #B7CADB; }
+      .stepNum { font: 700 22px 'Segoe UI', Arial, sans-serif; fill: #FFF8ED; }
+      .badgeText { font: 700 15px 'Segoe UI', Arial, sans-serif; fill: #FFF1CC; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" rx="32" fill="url(#bg)"/>
+
+  <text x="120" y="118" class="eyebrow">GOLDEN PATH</text>
+  <text x="120" y="170" class="title">A clean first run from spec to shippable MCP target.</text>
+  <text x="120" y="206" class="subtitle">Analyze the API, inspect the tool plan, review the runtime, then generate a target you can ship.</text>
+
+  <g filter="url(#shadow)">
+    <rect x="144" y="176" width="992" height="392" rx="32" fill="url(#panel)"/>
+  </g>
+
+  <text x="192" y="228" class="panelLabel">PUBLIC V0.1 WORKFLOW</text>
+  <text x="192" y="282" class="panelTitle">Five steps. One review path.</text>
+  <text x="192" y="328" class="panelText">Move from OpenAPI input to reviewed MCP output without losing sight of the full surface.</text>
+
+  <rect x="892" y="220" width="182" height="52" rx="18" fill="#D88A00"/>
+  <text x="924" y="252" class="badgeText">&lt; 20 TOOL TARGET</text>
+
+  <g>
+    <rect x="184" y="420" width="148" height="104" rx="24" fill="#10283D"/>
+    <rect x="376" y="420" width="148" height="104" rx="24" fill="#11304A"/>
+    <rect x="568" y="420" width="148" height="104" rx="24" fill="#123651"/>
+    <rect x="760" y="420" width="148" height="104" rx="24" fill="#143B58"/>
+    <rect x="952" y="420" width="148" height="104" rx="24" fill="#16507A"/>
+
+    <circle cx="224" cy="458" r="20" fill="#D88A00"/>
+    <circle cx="416" cy="458" r="20" fill="#D88A00"/>
+    <circle cx="608" cy="458" r="20" fill="#D88A00"/>
+    <circle cx="800" cy="458" r="20" fill="#D88A00"/>
+    <circle cx="992" cy="458" r="20" fill="#D88A00"/>
+
+    <text x="216" y="466" class="stepNum">1</text>
+    <text x="408" y="466" class="stepNum">2</text>
+    <text x="600" y="466" class="stepNum">3</text>
+    <text x="792" y="466" class="stepNum">4</text>
+    <text x="984" y="466" class="stepNum">5</text>
+
+    <text x="256" y="450" class="stepTitle">Ingest</text>
+    <text x="448" y="450" class="stepTitle">Normalize</text>
+    <text x="640" y="450" class="stepTitle">Curate</text>
+    <text x="832" y="450" class="stepTitle">Review</text>
+    <text x="1024" y="450" class="stepTitle">Ship</text>
+
+    <text x="256" y="476" class="stepText">Load OpenAPI or</text>
+    <text x="256" y="496" class="stepText">Swagger input.</text>
+    <text x="448" y="476" class="stepText">Build the full</text>
+    <text x="448" y="496" class="stepText">UASF surface.</text>
+    <text x="640" y="476" class="stepText">Compress endpoints</text>
+    <text x="640" y="496" class="stepText">into tool groups.</text>
+    <text x="832" y="476" class="stepText">Scanner, dashboard,</text>
+    <text x="832" y="496" class="stepText">and CI checks.</text>
+    <text x="1024" y="476" class="stepText">Generate TS or</text>
+    <text x="1024" y="496" class="stepText">Rust targets.</text>
+  </g>
+
+  <path d="M332 472H376" stroke="#8CB4D1" stroke-width="4" stroke-linecap="round"/>
+  <path d="M524 472H568" stroke="#8CB4D1" stroke-width="4" stroke-linecap="round"/>
+  <path d="M716 472H760" stroke="#8CB4D1" stroke-width="4" stroke-linecap="round"/>
+  <path d="M908 472H952" stroke="#8CB4D1" stroke-width="4" stroke-linecap="round"/>
+
+  <g>
+    <rect x="184" y="602" width="916" height="54" rx="20" fill="#10283D"/>
+    <text x="214" y="635" class="stepText">SPEC INPUT -> UASF NORMALIZATION -> TOOL CURATION -> SECURITY REVIEW -> MCP TARGETS</text>
+  </g>
+</svg>
