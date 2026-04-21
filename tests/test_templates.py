@@ -3,7 +3,7 @@
 
 """Tests for generated MCP server template quality."""
 
-from selqor_forge.templates import ts_index, ts_env_example, ts_package_json
+from selqor_forge.templates import rust_main, ts_index, ts_env_example, ts_package_json
 
 
 def test_ts_index_contains_resilience_features():
@@ -46,6 +46,27 @@ def test_ts_index_contains_resilience_features():
     assert "429" in code
     assert ">= 500" in code
 
+    # HTTP hardening
+    assert "validateConfiguredUrl" in code
+    assert "validateRelativePath" in code
+    assert "FORGE_HTTP_AUTH_TOKEN is required when FORGE_TRANSPORT=http" in code
+    assert "createRateLimiter" in code
+    assert 'app.get("/sse", rateLimiter, requireHttpAuth' in code
+    assert 'app.post("/messages", rateLimiter, requireHttpAuth' in code
+    assert 'app.get("/health", rateLimiter' in code
+    assert 'fetch(targetApiUrl.toString()' in code
+    assert 'fetch(tokenEndpoint.href' in code
+    assert 'fetch(oauthEndpoint.href' in code
+
+    # search_api should be discovery-only and direct users to the overflow executor
+    assert 'if (tool.name === "search_api")' in code
+    assert '"search_api requires query"' in code
+    assert "findSearchMatches" in code
+    assert "Call execute_overflow_operation with one of the returned operation ids to execute it." in code
+    assert 'const limit = getInteger(args.limit) ?? 10;' in code
+    assert 'tool.covered_endpoints.length === 1' in code
+    assert 'Tool ${tool.name} requires an explicit operation' in code
+
 
 def test_ts_index_default_transport_substitution():
     stdio = ts_index("stdio")
@@ -62,11 +83,25 @@ def test_ts_env_example_contains_resilience_vars():
     assert "FORGE_RETRY_BASE_MS" in env
     assert "FORGE_CB_FAILURE_THRESHOLD" in env
     assert "FORGE_CB_RESET_MS" in env
+    assert "FORGE_HTTP_AUTH_TOKEN" in env
+    assert "FORGE_HTTP_RATE_LIMIT_WINDOW_MS" in env
+    assert "FORGE_HTTP_RATE_LIMIT_MAX" in env
+    assert "FORGE_ALLOW_PRIVATE_HOSTS" in env
 
 
 def test_ts_package_json_valid():
     import json
     pkg = json.loads(ts_package_json())
-    assert "@modelcontextprotocol/sdk" in pkg["dependencies"]
-    assert "express" in pkg["dependencies"]
-    assert "tsx" in pkg["devDependencies"]
+    assert pkg["dependencies"]["@modelcontextprotocol/sdk"] == "1.29.0"
+    assert pkg["dependencies"]["express"] == "4.22.1"
+    assert pkg["devDependencies"]["tsx"] == "4.20.5"
+
+
+def test_rust_main_contains_search_api_guardrails():
+    code = rust_main("stdio")
+    assert 'if tool_name == "search_api"' in code
+    assert 'context("search_api requires query")' in code
+    assert "find_search_matches" in code
+    assert "Call execute_overflow_operation with one of the returned operation ids to execute it." in code
+    assert 'if tool.covered_endpoints.len() == 1' in code
+    assert 'requires an explicit operation' in code

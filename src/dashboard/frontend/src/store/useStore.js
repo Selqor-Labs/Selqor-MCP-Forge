@@ -56,6 +56,9 @@ const useStore = create((set, get) => ({
 
   // Versions
   versions: [],
+
+  // Dashboard capability metadata
+  authConfig: null,
 }));
 
 export default useStore;

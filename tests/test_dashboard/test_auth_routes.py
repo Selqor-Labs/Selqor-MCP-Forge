@@ -1,11 +1,7 @@
 # Copyright (c) Selqor Labs.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for auth-related API endpoints.
-
-Authentication is disabled — the dashboard is fully open. These tests
-verify the anonymous/open-access behaviour of all auth endpoints.
-"""
+"""Tests for auth-related API endpoints in the local-only public build."""
 
 
 def test_auth_config_always_200(client):
@@ -13,52 +9,51 @@ def test_auth_config_always_200(client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["enabled"] is False
-    assert body["provider"] == "anonymous"
+    assert body["provider"] == "local_only"
+    assert body["local_only"] is True
+    assert body["organizations_enabled"] is False
     assert "message" in body
 
 
-def test_auth_me_returns_anonymous(client):
-    """Without auth, /auth/me returns anonymous user profile."""
+def test_auth_me_is_disabled_in_local_only_build(client):
+    """Shared-user auth surfaces return an explicit local-only error."""
     resp = client.get("/api/auth/me")
-    assert resp.status_code == 200
+    assert resp.status_code == 501
     body = resp.json()
-    assert body["user_id"] == "anonymous"
-    assert body["auth_enabled"] is False
-    assert body["role"] == "admin"
+    assert body["detail"]["detail"] == "LOCAL_ONLY_BUILD"
+    assert body["detail"]["feature"] == "auth"
 
 
-def test_auth_context_returns_anonymous(client):
-    """Without auth, /auth/context returns anonymous context."""
+def test_auth_context_is_disabled_in_local_only_build(client):
+    """Shared auth context is disabled in the public local-only build."""
     resp = client.get("/api/auth/context")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["user_id"] == "anonymous"
-    assert body["auth_enabled"] is False
+    assert resp.status_code == 501
+    assert resp.json()["detail"]["feature"] == "auth"
 
 
-def test_onboarding_status_returns_ok(client):
-    """Without auth, onboarding-status returns a valid response."""
+def test_onboarding_status_is_disabled(client):
+    """Onboarding is disabled in the public local-only build."""
     resp = client.get("/api/users/me/onboarding-status")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert "needs_onboarding" in body
-    assert body["has_organizations"] is True
+    assert resp.status_code == 501
+    assert resp.json()["detail"]["feature"] == "onboarding"
 
 
-def test_pending_invites_returns_empty(client):
-    """Without auth, pending-invites returns an empty list."""
+def test_pending_invites_are_disabled(client):
+    """Team invites are disabled in the public local-only build."""
     resp = client.get("/api/users/me/pending-invites")
-    assert resp.status_code == 200
-    assert resp.json() == []
+    assert resp.status_code == 501
+    assert resp.json()["detail"]["feature"] == "team_invites"
 
 
-def test_accept_invite_returns_404(client):
-    """Accept invite always returns 404 (no invitations exist)."""
+def test_accept_invite_is_disabled(client):
+    """Accept invite returns a local-only disabled response."""
     resp = client.post("/api/users/me/invites/some-invite-id/accept")
-    assert resp.status_code == 404
+    assert resp.status_code == 501
+    assert resp.json()["detail"]["feature"] == "team_invites"
 
 
-def test_decline_invite_returns_404(client):
-    """Decline invite always returns 404 (no invitations exist)."""
+def test_decline_invite_is_disabled(client):
+    """Decline invite returns a local-only disabled response."""
     resp = client.post("/api/users/me/invites/some-invite-id/decline")
-    assert resp.status_code == 404
+    assert resp.status_code == 501
+    assert resp.json()["detail"]["feature"] == "team_invites"

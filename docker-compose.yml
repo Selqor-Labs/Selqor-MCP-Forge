@@ -1,5 +1,5 @@
 # Copyright (c) Selqor Labs.
-# Docker Compose for local development
+# Docker Compose for local demo and smoke testing only.
 
 services:
   db:
@@ -24,6 +24,9 @@ services:
       - "8787:8787"
     environment:
       DATABASE_URL: postgresql://selqor:selqor@db:5432/selqor_forge
+      FORGE_PRODUCTION: "false"
+    volumes:
+      - dashboard_state:/home/selqor/dashboard
     depends_on:
       db:
         condition: service_healthy
@@ -31,3 +34,4 @@ services:
 
 volumes:
   pgdata:
+  dashboard_state:

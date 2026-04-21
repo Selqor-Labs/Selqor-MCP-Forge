@@ -1,8 +1,86 @@
 # Selqor Forge
 
-Stop dumping endpoints into your agent. Curate them.
+<p align="center">
+  <img src="selqorLogos/selqor-labs-dark.svg" alt="Selqor Forge" width="320">
+</p>
+
+<p align="center">
+  <strong>Turn noisy API surfaces into curated MCP servers agents can actually use.</strong>
+</p>
+
+<p align="center">
+  Parse OpenAPI specs, preserve coverage, compress tool sprawl, review security, and ship MCP targets with a local dashboard.
+</p>
+
+<p align="center">
+  <img alt="Public v0.1" src="https://img.shields.io/badge/public-v0.1-0E2235?style=for-the-badge&labelColor=D88A00">
+  <img alt="Dashboard" src="https://img.shields.io/badge/dashboard-local--only-163650?style=for-the-badge">
+  <img alt="Targets" src="https://img.shields.io/badge/targets-TypeScript%20%7C%20Rust-163650?style=for-the-badge">
+</p>
+
+<p align="center">
+  <a href="#quick-start-5-minutes">Quick Start</a> &bull;
+  <a href="#golden-path-demo">Demo</a> &bull;
+  <a href="#why-it-feels-different">Why Forge</a> &bull;
+  <a href="#security-scanning--compliance">Security</a> &bull;
+  <a href="#more-documentation">Docs</a>
+</p>
 
 Selqor Forge turns your application's API specs into smaller, higher-signal MCP servers with smart and intelligently curated tools, then gives you a dashboard to manage integrations, auth, LLM configs, run history, and deployment prep.
+
+## At a Glance
+
+- Start from a full API spec, not a hand-trimmed subset.
+- Normalize the surface, score it, and curate it into an agent-usable tool plan.
+- Generate hardened MCP servers in TypeScript or Rust.
+- Review everything through a local dashboard before shipping.
+
+## Release Confidence
+
+- Full test suite currently passes: `217 passed`
+- Real-world validation was rerun against both the OpenAI and Stripe public specs
+- Fresh generated TypeScript servers rebuilt, booted over `stdio`, and rescanned at `0 findings / 100.0`
+
+## Why It Feels Different
+
+| Raw API -> MCP | Selqor Forge |
+| --- | --- |
+| One endpoint becomes one tool | Endpoints are grouped into higher-signal tools |
+| Tool count balloons quickly | Tool plans stay compressed and reviewable |
+| Agents waste context on definitions | Curated plans aim for agent-usable operating ranges |
+| Security and deploy steps are bolted on later | Scanner, dashboard, CI templates, and runtime hardening are built into the flow |
+| Hard to inspect what happened | UASF, tool plan, quality report, and generated targets stay visible |
+
+## How It Works
+
+1. **Parse and normalize** your OpenAPI or Swagger spec into a full intermediate surface.
+2. **Analyze and curate** the endpoint graph into a tool plan with coverage, compression, and overflow handling.
+3. **Generate and review** hardened MCP targets in TypeScript or Rust, then validate them through the local dashboard and scanner.
+
+## Public v1 Support Matrix
+
+- Supported: GitHub source checkout, Docker demo stack, local single-user dashboard, TypeScript targets, Rust `stdio`, CLI generation, CLI scanning
+- Experimental: Rust HTTP transport
+- Not in public v1: shared dashboard auth, organizations, team management, PyPI install
+
+## Known Limitations
+
+- The dashboard is intentionally local-only in this public build.
+- Shared-user auth, organization management, and team invites are disabled and return explicit `501 LOCAL_ONLY_BUILD` responses.
+- PostgreSQL-backed fresh installs are supported, but file-state-to-Postgres seeding is still not implemented.
+- Generated CI/CD templates install Selqor Forge from a pinned GitHub commit tarball, not from PyPI.
+
+## Golden Path Demo
+
+**Fastest path to value**
+
+1. Clone the repo and run `pip install -e .[dev]`
+2. Build the frontend with `cd src/dashboard/frontend && npm ci && npm run build`
+3. Start the dashboard with `selqor-forge dashboard --state ./dashboard`
+4. Create an integration from `https://petstore.swagger.io/v2/swagger.json`
+5. Run analysis, inspect the tool plan, then generate a TypeScript target
+
+See [docs/RELEASE_MATRIX.md](docs/RELEASE_MATRIX.md) for the release truth table used for public v1.
 
 ## Why This Exists
 
@@ -14,7 +92,17 @@ Raw tool catalogs get expensive and noisy fast:
 
 Selqor Forge sits in that gap: parse the full API surface, preserve coverage, and curate it into a tool plan that an agent can actually use.
 
-## 🚀 Quick Start (5 Minutes)
+## What You Ship
+
+- Curated MCP servers instead of raw endpoint dumps
+- A reviewable tool plan with coverage and compression context
+- Local dashboard workflows for integrations, auth profiles, runs, and deployment prep
+- Built-in security scanning and generated runtime hardening
+- CI/CD scaffolds that match the public GitHub-based install path
+
+## Quick Start (5 Minutes)
+
+If you just want to see the product working, do this:
 
 ### Prerequisites
 
@@ -30,11 +118,6 @@ cd selqor-forge
 pip install -e .[dev]
 ```
 
-**What this does:**
-
-- Installs Selqor Forge in editable mode (changes reflect immediately)
-- Includes dev dependencies (pytest, mypy, ruff)
-
 ### Step 1.5: Initialize the Dashboard Secret Key
 
 ```bash
@@ -42,13 +125,7 @@ cp .env.example .env                   # first time only
 python scripts/init_secret_key.py      # writes FORGE_SECRET_KEY into .env
 ```
 
-**What this does:**
-
-- Generates a Fernet key used to encrypt stored API keys, tokens, and passwords at rest.
-- Writes it to `.env` once (idempotent — safe to re-run, won't overwrite a valid key without `--force`).
-- Without this step the dashboard auto-generates a key on first run into `<state_dir>/.forge-secret.key`; if that file is ever lost, previously-stored secrets become undecryptable and you'll see warnings like `Could not decrypt dashboard secret`.
-
-Back up the `FORGE_SECRET_KEY` value alongside your database. In production, inject it from your secret manager instead of committing `.env`.
+This creates the Fernet key used to encrypt stored credentials at rest. Back up `FORGE_SECRET_KEY` alongside your database and inject it from your secret manager outside local development.
 
 ### Step 2: Build the Frontend
 
@@ -59,24 +136,11 @@ npm run build    # Creates dist/ folder with optimized assets
 cd ../../..      # Back to project root
 ```
 
-**What this does:**
-
-- Installs React, Vite, Material-UI, and dependencies
-- Builds static frontend assets
-- If this step fails, see [Troubleshooting](#troubleshooting-frontend-build-fails)
-
 ### Step 3: Launch the Dashboard
 
 ```bash
 selqor-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
 ```
-
-**What this does:**
-
-- Starts FastAPI backend on http://127.0.0.1:8787
-- Serves the React frontend
-- Creates a `./dashboard` directory for local state (integrations, runs, configs)
-- Prints warnings about security (placeholder auth, local-only binding)
 
 ### Step 4: Open in Your Browser
 
@@ -86,11 +150,11 @@ Open **http://127.0.0.1:8787** in your browser. You should see:
 - Sidebar with: Integrations, LLM Config, Monitoring, Settings, etc.
 - Welcome message (if first run)
 
-**Congratulations! You're running Selqor Forge.**
+That gets you to a real working local dashboard with integrations, LLM config, scanning, and deployment prep. If something fails, jump to [Troubleshooting](#troubleshooting).
 
 ---
 
-## 📖 Common Workflows
+## Common Workflows
 
 ### 1. Analyze Your First API Spec
 
@@ -154,7 +218,7 @@ Once you have a curated tool plan:
 
 ---
 
-## 📋 What You Get
+## Capabilities
 
 - ✅ OpenAPI 3.x and Swagger 2.0 ingestion from local files or HTTP(S) URLs
 - ✅ UASF normalization for endpoint/domain/intent modeling
@@ -167,12 +231,12 @@ Once you have a curated tool plan:
 - ✅ Encryption of secrets at rest (Fernet)
 - ✅ Local state persistence (JSON files or database)
 
-## 🎯 Runtime Targets
+## Runtime Targets
 
 - **TypeScript:** Ready for `stdio` and HTTP/SSE generation paths
 - **Rust:** `stdio` target is production-ready; HTTP transport is experimental
 
-## 🖥️ Dashboard Features
+## Dashboard Features
 
 ### Core Features
 
@@ -258,13 +322,13 @@ The repo includes a checked-in Petstore example with both the curated outputs an
 
 ## Authentication Status
 
-Selqor Forge does **not** ship with a production auth system. The built-in dashboard auth hook is intentionally a placeholder, and auth/org routes should be treated as integration points rather than ready-made multi-tenant features.
+Selqor Forge does **not** ship with a production shared-user auth system in this public build. The dashboard is intentionally positioned as a local-only single-user tool, and shared auth/org/team routes return explicit local-only disabled responses.
 
 Use [docs/AUTH_MODULE_INTEGRATION.md](docs/AUTH_MODULE_INTEGRATION.md) before exposing the dashboard to any shared or untrusted network.
 
 ---
 
-## 🔧 CLI Commands
+## CLI Commands
 
 ### Dashboard (Interactive Web UI)
 
@@ -358,7 +422,7 @@ selqor-forge benchmark --manifest ./benchmarks/apis.json --out ./benchmark-resul
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables (Safe Secrets)
 
@@ -391,8 +455,16 @@ MINIO_SECRET_KEY=
 MINIO_REGION=us-east-1
 MINIO_PREFIX=selqor-forge
 
-# Optional LLM provider credentials (configure via Dashboard → LLM Config)
+# CLI and CI can use environment-driven LLM settings directly.
+# The dashboard scanner uses Dashboard -> LLM Config instead.
+# Minimal Anthropic setup:
 ANTHROPIC_API_KEY=
+# Generic or Mistral-compatible CLI setup:
+FORGE_LLM_PROVIDER=
+FORGE_LLM_MODEL=
+FORGE_LLM_API_KEY=
+FORGE_LLM_BASE_URL=
+MISTRAL_API_KEY=
 
 # Optional generated-server auth helpers
 FORGE_STATIC_HEADERS_JSON={}
@@ -433,7 +505,7 @@ selqor-forge dashboard --config ./forge.json
 
 ---
 
-## 🐳 Docker (Local Development)
+## Docker (Local Development)
 
 ### Using Docker Compose
 
@@ -446,11 +518,11 @@ This starts:
 - **Dashboard:** http://localhost:8787
 - **PostgreSQL:** localhost:5432
 
-**Note:** The Dockerfile and docker-compose.yml are included for local development. For production, review and customize them for your security requirements.
+**Note:** The Dockerfile and `docker-compose.yml` are intended for local demo and smoke testing. Review and customize them before any broader deployment.
 
 ---
 
-## 🚀 Deployment & Runtime
+## Deployment & Runtime
 
 ### Local Development (What You're Doing Now)
 
@@ -472,7 +544,7 @@ selqor-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
 ```bash
 docker build -t selqor-forge:latest .
 docker run -p 8787:8787 \
-  -v /data/forge-state:/forge-state \
+  -v /data/forge-state:/home/selqor/dashboard \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   selqor-forge:latest
 ```
@@ -510,7 +582,7 @@ Before exposing Selqor Forge to a shared network:
 
 ---
 
-## ❓ Troubleshooting
+## Troubleshooting
 
 ### Frontend Build Fails
 
@@ -614,7 +686,7 @@ python -m pytest tests/ --cov=src/selqor_forge --cov-report=html
 
 ---
 
-## 📚 Examples & Documentation
+## Examples & Documentation
 
 ### Worked Example: Petstore API
 
@@ -657,7 +729,7 @@ Then compare your outputs to `examples/petstore/` to see what the tool does.
 
 ---
 
-## 📖 More Documentation
+## More Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — How to contribute
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — Community guidelines
@@ -675,7 +747,7 @@ Then compare your outputs to `examples/petstore/` to see what the tool does.
 
 ---
 
-## 🔒 Security Scanning & Compliance
+## Security Scanning & Compliance
 
 ### AI-Powered OWASP Analysis
 
@@ -726,7 +798,7 @@ selqor-forge scan ./server --full --no-llm --format json
 
 ---
 
-## 🎮 Advanced Workflows
+## Advanced Workflows
 
 ### Playground Testing
 
@@ -784,7 +856,7 @@ curl http://localhost:8787/api/cicd/badge/my-project  # Get compliance badge
 
 ---
 
-## 📊 Monitoring & Observability
+## Monitoring & Observability
 
 ### Built-in Monitoring Dashboard
 
@@ -795,7 +867,7 @@ curl http://localhost:8787/api/cicd/badge/my-project  # Get compliance badge
 
 ---
 
-## 🐞 Getting Help
+## Getting Help
 
 - **Bug Reports:** [GitHub Issues](https://github.com/Selqor-Labs/selqor-forge/issues)
 - **Security Issues:** See [SECURITY.md](SECURITY.md)

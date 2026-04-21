@@ -20,7 +20,7 @@ cd ../../..
 
 ## Development Workflow
 
-1. Create a branch from `forge-mcp`.
+1. Create a branch from `main`.
 2. Make focused changes with tests for behavior changes.
 3. Run the local checks before opening a pull request:
 

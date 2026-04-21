@@ -6,18 +6,15 @@
 from __future__ import annotations
 
 import json
-import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from selqor_forge.dashboard.middleware import Ctx
+from selqor_forge.dashboard.middleware import Ctx, local_only_feature_error
 from selqor_forge.dashboard.repositories import (
     ScanPolicyRepository,
-    TeamSettingsRepository,
-    TeamInviteRepository,
     UserPreferencesRepository,
 )
 
@@ -32,9 +29,9 @@ class InviteBody(BaseModel):
 
 class PreferencesBody(BaseModel):
     """User preferences."""
-    theme: str = "system"
+    theme: str = "light"
     notifications_enabled: bool = True
-    default_scan_mode: str = "standard"
+    default_scan_mode: str = "basic"
     auto_remediate: bool = False
     dashboard_layout: str = "default"
 
@@ -48,6 +45,35 @@ def _model_to_dict(model) -> dict:
     return {k: v for k, v in model.__dict__.items() if not k.startswith("_")}
 
 
+def _preferences_payload(data: dict | None = None) -> dict:
+    """Normalize persisted preferences to the public local-only defaults."""
+    payload = data or {}
+    theme = payload.get("theme")
+    if theme not in {"light", "dark"}:
+        theme = "light"
+    scan_mode = payload.get("default_scan_mode")
+    if scan_mode not in {"basic", "full"}:
+        scan_mode = "basic"
+    return {
+        "theme": theme,
+        "notifications_enabled": payload.get("notifications_enabled", True),
+        "default_scan_mode": scan_mode,
+        "auto_remediate": payload.get("auto_remediate", False),
+        "dashboard_layout": payload.get("dashboard_layout", "default"),
+        "updated_at": payload.get("updated_at"),
+    }
+
+
+def _local_only_export_placeholder(feature: str) -> dict:
+    """Shared disabled payload shape for local-only export surfaces."""
+    return {
+        "status": "disabled",
+        "reason": "LOCAL_ONLY_BUILD",
+        "feature": feature,
+        "message": "Team management is not included in the public local-only build.",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Team settings
 # ---------------------------------------------------------------------------
@@ -55,27 +81,8 @@ def _model_to_dict(model) -> dict:
 @router.get("/team")
 async def get_team(ctx: Ctx) -> dict:
     """Get team settings and members list."""
-    session = ctx.db_session_factory()
-    try:
-        repo = TeamSettingsRepository(session)
-        team = repo.get()
-        if team is None:
-            return {
-                "name": "Default Team",
-                "members": [],
-                "settings": {},
-                "member_count": 0,
-            }
-        d = _model_to_dict(team)
-        members = d.get("members", [])
-        return {
-            "name": d.get("name"),
-            "members": members,
-            "settings": d.get("settings", {}),
-            "member_count": len(members),
-        }
-    finally:
-        session.close()
+    del ctx
+    raise local_only_feature_error("team_management")
 
 
 # ---------------------------------------------------------------------------
@@ -85,65 +92,22 @@ async def get_team(ctx: Ctx) -> dict:
 @router.post("/team/invite")
 async def send_invite(ctx: Ctx, body: InviteBody) -> dict:
     """Send a team invite."""
-    if body.role not in ("admin", "member", "viewer"):
-        raise HTTPException(status_code=400, detail="Invalid role. Use 'admin', 'member', or 'viewer'.")
-
-    session = ctx.db_session_factory()
-    try:
-        repo = TeamInviteRepository(session)
-        # Check for duplicate pending invite
-        pending = repo.list_pending()
-        existing = next((i for i in pending if i.email == body.email), None)
-        if existing:
-            raise HTTPException(status_code=409, detail="A pending invite already exists for this email")
-
-        invite_id = str(uuid.uuid4())
-        now = datetime.utcnow().isoformat() + "Z"
-
-        invite = repo.create(
-            id=invite_id,
-            email=body.email,
-            role=body.role,
-            status="pending",
-            created_at=now,
-            expires_at=None,
-        )
-        return _model_to_dict(invite)
-    finally:
-        session.close()
+    del ctx, body
+    raise local_only_feature_error("team_management")
 
 
 @router.get("/team/invites")
 async def list_invites(ctx: Ctx) -> dict:
     """List pending invites."""
-    session = ctx.db_session_factory()
-    try:
-        repo = TeamInviteRepository(session)
-        pending = repo.list_pending()
-        pending_dicts = [_model_to_dict(i) for i in pending]
-        return {"invites": pending_dicts, "total": len(pending_dicts)}
-    finally:
-        session.close()
+    del ctx
+    raise local_only_feature_error("team_management")
 
 
 @router.delete("/team/invites/{invite_id}")
 async def cancel_invite(ctx: Ctx, invite_id: str) -> dict:
     """Cancel a pending invite."""
-    session = ctx.db_session_factory()
-    try:
-        repo = TeamInviteRepository(session)
-        invite = repo.get_by_id(invite_id)
-
-        if invite is None:
-            raise HTTPException(status_code=404, detail="Invite not found")
-
-        if invite.status != "pending":
-            raise HTTPException(status_code=400, detail="Invite is not pending")
-
-        repo.cancel(invite_id)
-        return {"message": "Invite cancelled", "id": invite_id}
-    finally:
-        session.close()
+    del ctx, invite_id
+    raise local_only_feature_error("team_management")
 
 
 # ---------------------------------------------------------------------------
@@ -158,17 +122,8 @@ async def get_preferences(ctx: Ctx) -> dict:
         repo = UserPreferencesRepository(session)
         prefs = repo.get()
         if prefs is None:
-            return PreferencesBody().model_dump()
-        d = _model_to_dict(prefs)
-        # Return only the preference fields matching the Pydantic model + updated_at
-        return {
-            "theme": d.get("theme", "system"),
-            "notifications_enabled": d.get("notifications_enabled", True),
-            "default_scan_mode": d.get("default_scan_mode", "standard"),
-            "auto_remediate": d.get("auto_remediate", False),
-            "dashboard_layout": d.get("dashboard_layout", "default"),
-            "updated_at": d.get("updated_at"),
-        }
+            return _preferences_payload()
+        return _preferences_payload(_model_to_dict(prefs))
     finally:
         session.close()
 
@@ -186,15 +141,7 @@ async def save_preferences(ctx: Ctx, body: PreferencesBody) -> dict:
             auto_remediate=body.auto_remediate,
             dashboard_layout=body.dashboard_layout,
         )
-        d = _model_to_dict(prefs)
-        return {
-            "theme": d.get("theme", "system"),
-            "notifications_enabled": d.get("notifications_enabled", True),
-            "default_scan_mode": d.get("default_scan_mode", "standard"),
-            "auto_remediate": d.get("auto_remediate", False),
-            "dashboard_layout": d.get("dashboard_layout", "default"),
-            "updated_at": d.get("updated_at"),
-        }
+        return _preferences_payload(_model_to_dict(prefs))
     finally:
         session.close()
 
@@ -296,22 +243,15 @@ async def export_data(ctx: Ctx) -> Response:
             MonitoringCheckRepository,
         )
 
-        team_repo = TeamSettingsRepository(session)
-        invite_repo = TeamInviteRepository(session)
         prefs_repo = UserPreferencesRepository(session)
         server_repo = MonitoredServerRepository(session)
 
-        # Team
-        team = team_repo.get()
-        team_data = _model_to_dict(team) if team else {"name": "Default Team", "members": []}
-
-        # Invites
-        pending = invite_repo.list_pending()
-        invites_data = [_model_to_dict(i) for i in pending]
+        team_data = _local_only_export_placeholder("team_management")
+        invites_data: list[dict] = []
 
         # Preferences
         prefs = prefs_repo.get()
-        prefs_data = _model_to_dict(prefs) if prefs else PreferencesBody().model_dump()
+        prefs_data = _preferences_payload(_model_to_dict(prefs) if prefs else None)
 
         # Monitoring servers
         servers = server_repo.list_all()

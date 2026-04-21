@@ -8,6 +8,6 @@
 
 ## Before Opening An Issue
 
-- Confirm you are using the current `forge-mcp` branch or latest mainline merge.
+- Confirm you are using the current `main` branch or latest mainline merge.
 - Rebuild the dashboard frontend if the UI is missing assets.
 - Run the test suite locally and include the failing output when relevant.

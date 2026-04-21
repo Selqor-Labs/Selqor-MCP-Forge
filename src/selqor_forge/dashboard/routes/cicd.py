@@ -12,8 +12,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import shlex
+import subprocess
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request
@@ -133,6 +135,40 @@ def _report_path(body: CICDConfigBody) -> str:
     return f"{body.output_dir}/scan-report.json"
 
 
+def _install_command() -> str:
+    """Pinned public install source for generated CI templates."""
+    install_url = _resolve_install_tarball_url()
+    return f"pip install --upgrade {shlex.quote(install_url)}"
+
+
+def _resolve_install_tarball_url() -> str:
+    """Return a pinned GitHub tarball URL for the current repository commit."""
+    sha = os.environ.get("SELQOR_FORGE_GIT_SHA", "").strip()
+    if not sha:
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                check=True,
+                text=True,
+                timeout=5,
+            )
+        except (FileNotFoundError, subprocess.SubprocessError, OSError) as exc:
+            raise RuntimeError(
+                "Unable to resolve a pinned Selqor Forge commit SHA. Set "
+                "SELQOR_FORGE_GIT_SHA before generating CI/CD templates."
+            ) from exc
+        sha = result.stdout.strip()
+
+    if not sha:
+        raise RuntimeError(
+            "Unable to resolve a pinned Selqor Forge commit SHA. Set "
+            "SELQOR_FORGE_GIT_SHA before generating CI/CD templates."
+        )
+
+    return f"https://github.com/Selqor-Labs/Selqor-MCP-Forge/archive/{sha}.tar.gz"
+
+
 # ---------------------------------------------------------------------------
 # Generators — one per CI target
 # ---------------------------------------------------------------------------
@@ -173,8 +209,8 @@ def _generate_github_actions(body: CICDConfigBody) -> str:
         '          python-version: "3.11"',
         "          cache: pip",
         "",
-        "      - name: Install Selqor Forge",
-        "        run: pip install --upgrade selqor-forge",
+        "      - name: Install Selqor Forge from pinned GitHub tarball",
+        f"        run: {_install_command()}",
         "",
         "      - name: Run security scan",
     ]
@@ -219,8 +255,10 @@ def _generate_github_actions(body: CICDConfigBody) -> str:
     if needs_llm_secret:
         lines += [
             "",
-            "    # NOTE: this workflow needs an ANTHROPIC_API_KEY repository",
-            "    # secret. Add it under Settings → Secrets and variables → Actions.",
+            "    # NOTE: by default this workflow expects ANTHROPIC_API_KEY in",
+            "    # repository secrets. For other providers, export",
+            "    # FORGE_LLM_PROVIDER / FORGE_LLM_MODEL / FORGE_LLM_API_KEY",
+            "    # in your CI environment instead.",
         ]
 
     return "\n".join(lines) + "\n"
@@ -250,7 +288,7 @@ def _generate_gitlab_ci(body: CICDConfigBody) -> str:
         "  variables:",
         "    PIP_CACHE_DIR: .cache/pip",
         "  before_script:",
-        "    - pip install --upgrade selqor-forge",
+        f"    - {_install_command()}",
         "  script:",
         f"    - {cmd}",
     ]
@@ -283,9 +321,11 @@ def _generate_gitlab_ci(body: CICDConfigBody) -> str:
     ]
 
     if needs_llm_secret:
-        lines.insert(0, "# NOTE: define an ANTHROPIC_API_KEY CI/CD variable in")
-        lines.insert(1, "# Settings → CI/CD → Variables (masked + protected).")
-        lines.insert(2, "")
+        lines.insert(0, "# NOTE: by default define ANTHROPIC_API_KEY in Settings -> CI/CD -> Variables.")
+        lines.insert(1, "# Use masked + protected variables for whichever provider you choose.")
+        lines.insert(2, "# For other providers, define FORGE_LLM_PROVIDER, FORGE_LLM_MODEL, and")
+        lines.insert(3, "# FORGE_LLM_API_KEY instead.")
+        lines.insert(4, "")
 
     return "\n".join(lines) + "\n"
 
@@ -336,10 +376,8 @@ def _generate_pre_commit(body: CICDConfigBody) -> str:
     ]
 
     if body.use_llm:
-        lines.insert(
-            0,
-            "# This hook needs ANTHROPIC_API_KEY in the environment when LLM analysis is on.",
-        )
+        lines.insert(0, "# This hook expects ANTHROPIC_API_KEY by default, or use")
+        lines.insert(1, "# FORGE_LLM_PROVIDER / FORGE_LLM_MODEL / FORGE_LLM_API_KEY for another provider.")
 
     return "\n".join(lines) + "\n"
 

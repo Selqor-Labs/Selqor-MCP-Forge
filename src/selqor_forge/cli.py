@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from ipaddress import ip_address
 from enum import StrEnum
 from pathlib import Path
@@ -138,6 +139,41 @@ def _resolve_dashboard_llm_config(state_dir: Path, llm_config_id: str | None = N
         return None
 
 
+def _resolve_env_llm_config():
+    """Load an LLM runtime config from environment variables for CLI usage."""
+    from selqor_forge.pipeline.analyze import LlmRuntimeConfig
+
+    provider = (os.environ.get("FORGE_LLM_PROVIDER", "").strip() or "").lower()
+    model = os.environ.get("FORGE_LLM_MODEL", "").strip() or None
+    base_url = os.environ.get("FORGE_LLM_BASE_URL", "").strip() or None
+    api_key = os.environ.get("FORGE_LLM_API_KEY", "").strip() or None
+    bearer_token = os.environ.get("FORGE_LLM_BEARER_TOKEN", "").strip() or None
+
+    if api_key is None and bearer_token is None:
+        if os.environ.get("MISTRAL_API_KEY", "").strip():
+            provider = provider or "mistral"
+            api_key = os.environ.get("MISTRAL_API_KEY", "").strip()
+        elif os.environ.get("ANTHROPIC_API_KEY", "").strip():
+            provider = provider or "anthropic"
+            api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+
+    if provider == "mistral" and base_url is None:
+        base_url = "https://api.mistral.ai"
+
+    if not provider or (api_key is None and bearer_token is None):
+        return None
+
+    return LlmRuntimeConfig(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        auth_type="api_key" if api_key else "bearer",
+        api_key=api_key,
+        bearer_token=bearer_token,
+        custom_headers={},
+    )
+
+
 @app.command()
 def generate(
     spec: Annotated[str, typer.Argument(help="OpenAPI spec path or URL")],
@@ -170,7 +206,12 @@ def generate(
     logger.debug("UASF normalized: %d endpoints", len(uasf.endpoints))
 
     logger.info("[3/6] Analyzing semantic groups")
-    analysis = analyze.analyze(uasf, app_config)
+    runtime_llm = None if no_llm else _resolve_env_llm_config()
+    analysis = (
+        analyze.analyze_with_override(uasf, app_config, runtime_llm)
+        if runtime_llm is not None
+        else analyze.analyze(uasf, app_config)
+    )
 
     logger.info("[4/6] Curating semantic tool plan")
     plan = curate.curate(uasf, app_config, analysis)
@@ -233,6 +274,8 @@ def benchmark(
     llm_config = None
     if not no_llm:
         llm_config = _resolve_dashboard_llm_config(state, llm_config_id)
+        if llm_config is None:
+            llm_config = _resolve_env_llm_config()
         if llm_config:
             logger.info(
                 "benchmark using LLM: provider=%s model=%s",
@@ -328,8 +371,34 @@ def scan(
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Initialize scanner
-    api_key = None if no_llm else None  # API key comes from env
-    scanner = SecurityScanner(api_key=api_key, use_semgrep=use_semgrep, enable_trivy=full_mode)
+    api_key = None
+    llm_provider = "anthropic"
+    llm_model = None
+    llm_base_url = None
+    if not no_llm:
+        runtime_llm = _resolve_env_llm_config()
+        if runtime_llm:
+            api_key = runtime_llm.api_key or runtime_llm.bearer_token
+            llm_provider = runtime_llm.provider
+            llm_model = runtime_llm.model
+            llm_base_url = runtime_llm.base_url
+            logger.info(
+                "scanner LLM analysis enabled via environment: provider=%s model=%s",
+                llm_provider,
+                llm_model,
+            )
+        else:
+            logger.warning(
+                "No CLI LLM environment variables found; scanner will use heuristic analysis only"
+            )
+    scanner = SecurityScanner(
+        api_key=api_key,
+        use_semgrep=use_semgrep,
+        enable_trivy=full_mode,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        llm_base_url=llm_base_url,
+    )
 
     # Run scan
     async def run_scan() -> None:

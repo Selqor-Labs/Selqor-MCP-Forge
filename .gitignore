@@ -18,9 +18,13 @@ build/
 /dashboard
 /frontend/
 /.tmp/
+/.tmp-openai-spec/
+/.tmp-stripe-spec/
 /.tmp-tests/
 /.tmp-pytest/
 /.tmp-pytest-eval/
+/.release-dashboard/
+/.release-venv/
 .DS_Store
 .env
 *.log

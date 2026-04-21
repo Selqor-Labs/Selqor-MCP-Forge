@@ -45,6 +45,7 @@ version = "0.2.0"
 dependencies = [
   "mcp==1.2.3",
   "httpx>=0.27",
+  "uvicorn[standard]>=0.34 ; python_version >= '3.11'",
 ]
 """.strip(),
         encoding="utf-8",
@@ -56,5 +57,55 @@ dependencies = [
     assert manifest.version == "0.2.0"
     assert manifest.language == "python"
     assert manifest.transport == TransportType.STDIO
-    assert manifest.dependencies["mcp"] == "1.2.3"
-    assert manifest.dependencies["httpx>=0.27"] == "*"
+    assert manifest.dependencies["mcp"] == "==1.2.3"
+    assert manifest.dependencies["httpx"] == ">=0.27"
+    assert manifest.dependencies["uvicorn"] == ">=0.34"
+
+
+@pytest.mark.asyncio
+async def test_discover_typescript_server_prefers_package_lock_versions(tmp_state_dir):
+    package_json = tmp_state_dir / "package.json"
+    package_json.write_text(
+        """
+{
+  "name": "sample-mcp-ts",
+  "version": "0.3.0",
+  "dependencies": {
+    "express": "^4.21.2",
+    "@modelcontextprotocol/sdk": "^1.8.0"
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    package_lock = tmp_state_dir / "package-lock.json"
+    package_lock.write_text(
+        """
+{
+  "name": "sample-mcp-ts",
+  "lockfileVersion": 3,
+  "packages": {
+    "": {
+      "dependencies": {
+        "express": "^4.21.2",
+        "@modelcontextprotocol/sdk": "^1.8.0"
+      }
+    },
+    "node_modules/express": {
+      "version": "4.22.1"
+    },
+    "node_modules/@modelcontextprotocol/sdk": {
+      "version": "1.29.0"
+    }
+  }
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    manifest = await MCPDiscovery.from_local_directory(str(tmp_state_dir))
+
+    assert manifest.name == "sample-mcp-ts"
+    assert manifest.language == "typescript"
+    assert manifest.dependencies["express"] == "4.22.1"
+    assert manifest.dependencies["@modelcontextprotocol/sdk"] == "1.29.0"

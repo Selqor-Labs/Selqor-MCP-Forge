@@ -97,6 +97,12 @@ export default function DeployStep({ integration, onReload }) {
                 {transport === 'stdio' ? ' Uses stdio (Claude Desktop, Cursor, etc.).' : ` Listens on port ${httpPort} for SSE.`}
               </Typography>
             </Alert>
+            {target === 'rust' && transport === 'http' && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                Rust HTTP transport is still experimental in the public v1 build. Use Rust `stdio`
+                or TypeScript HTTP for the most reliable path today.
+              </Alert>
+            )}
             <Button variant="contained" startIcon={deploying ? <CircularProgress size={16} color="inherit" /> : <RocketLaunchIcon />} onClick={handleDeploy} disabled={deploying} sx={{ mt: 2 }}>
               {deploying ? 'Preparing...' : 'Prepare Deployment'}
             </Button>

@@ -1,33 +1,41 @@
-# Dashboard Authentication Module Integration
+# Dashboard Authentication Integration
 
-Selqor Forge no longer ships with built-in Keycloak authentication.
-The dashboard now uses a placeholder hook so teams can integrate their preferred auth stack.
+Selqor Forge public v1 ships the dashboard as a **local-only single-user tool**.
+It does not include shared-user authentication, organizations, or team
+management out of the box.
+
+## What The Public Build Does
+
+- `GET /api/auth/config` reports capability metadata for the local-only build
+- Shared auth, onboarding, invite, organization, and team-management routes
+  return `501 LOCAL_ONLY_BUILD`
+- Core local dashboard APIs continue to work without user authentication
+
+## When You Need This Document
+
+Use this guide only if you are adapting Selqor Forge for a shared or untrusted
+network. If you are running the public build on your own machine, you do not
+need to integrate auth.
 
 ## Integration Point
 
 Implement your auth logic in:
 
 - `src/selqor_forge/dashboard/middleware.py`
-- Function: `get_current_user(request: Request) -> CurrentUser | None`
-
-Current default behavior:
-
-- Returns `None` for every request.
-- Core dashboard APIs continue to work without user authentication.
-- Auth-specific endpoints return `501 AUTH_MODULE_NOT_INTEGRATED`.
+- `get_current_user(request: Request) -> CurrentUser | None`
+- `get_effective_org_id(...) -> str | None` if you need real org scoping
 
 ## Expected Contract
 
 Your implementation should:
 
-1. Validate incoming credentials/session (JWT, cookie session, API gateway headers, etc.).
-2. Return `CurrentUser(...)` for authenticated users.
-3. Return `None` for anonymous mode if you want public access.
-4. Raise an HTTPException when authentication fails.
+1. Validate incoming credentials or session state
+2. Return `CurrentUser(...)` for authenticated users
+3. Return `None` only if you intentionally support anonymous access
+4. Raise `HTTPException` when authentication fails
+5. Replace the local-only capability metadata from `auth_placeholder_config()`
 
-## Auth-Specific Endpoints
-
-The following endpoints depend on user authentication context:
+## Shared-Feature Endpoints To Re-enable
 
 - `GET /api/auth/me`
 - `GET /api/auth/context`
@@ -36,13 +44,21 @@ The following endpoints depend on user authentication context:
 - `POST /api/users/me/invites/{id}/accept`
 - `POST /api/users/me/invites/{id}/decline`
 - `POST /api/organizations`
+- `GET /api/organizations/check`
+- `GET /api/settings/team`
+- `POST /api/settings/team/invite`
+- `GET /api/settings/team/invites`
+- `DELETE /api/settings/team/invites/{invite_id}`
 
-When no auth module is integrated, these endpoints return `501`.
+## Local-Only Capability Payload
 
-## Optional Metadata Endpoint
-
-`GET /api/auth/config` returns placeholder metadata for client-side checks:
+`GET /api/auth/config` currently returns metadata like:
 
 - `enabled: false`
-- `provider: "anonymous"`
-- `message: "Dashboard is open — no authentication required."`
+- `provider: "local_only"`
+- `local_only: true`
+- `organizations_enabled: false`
+- `team_management_enabled: false`
+
+If you add real auth, update this payload so the frontend can discover the new
+capabilities without guessing.

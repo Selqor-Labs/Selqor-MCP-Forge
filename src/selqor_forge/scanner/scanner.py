@@ -8,6 +8,7 @@ from __future__ import annotations
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 from .cve_checker import CVEChecker
 from .discover import MCPDiscovery
@@ -255,15 +256,31 @@ class SecurityScanner:
             await update_progress("trivy_scan", 5, message="Trivy skipped")
 
         # Step 6: LLM analysis
-        if full_mode:
-            await update_progress("llm_analysis", 6, message="Running OWASP Agentic analysis...")
-            llm_findings = await self.llm_judge.analyze_owasp_agentic_top10(
-                manifest.tools,
-                [],
+        if full_mode and not self.llm_judge.heuristic_mode:
+            await update_progress("llm_analysis", 6, message="Running LLM security analysis...")
+            code_snippets = self._collect_local_code_snippets(directory, manifest.language)
+            tool_defs = self._normalize_tool_definitions(
+                manifest.raw_manifest.get("mcp_tools", []) or manifest.tools or []
+            )
+            tool_descs = [
+                tool.get("description", tool.get("name", ""))
+                for tool in tool_defs
+                if isinstance(tool, dict)
+            ]
+            llm_findings = await self.llm_judge.analyze_prompt_injection_risk(
+                tool_defs if tool_defs else [{"spec": "local"}],
+                tool_descs,
+            )
+            owasp_findings = await self.llm_judge.analyze_owasp_agentic_top10(
+                tool_defs,
+                code_snippets,
             )
             findings.extend(llm_findings)
+            findings.extend(owasp_findings)
+        elif full_mode:
+            await update_progress("llm_analysis", 6, message="LLM analysis skipped (no LLM configured)")
         else:
-            await update_progress("llm_analysis", 6, message="LLM analysis skipped")
+            await update_progress("llm_analysis", 6, message="LLM analysis skipped (full mode disabled)")
 
         # Step 7: AI-BOM
         await update_progress("ai_bom", 7, message="Generating AI Bill of Materials...")
@@ -475,6 +492,54 @@ class SecurityScanner:
             pass
 
         return findings
+
+    def _collect_local_code_snippets(
+        self,
+        directory: str,
+        language: str,
+        *,
+        limit: int = 30,
+    ) -> list[tuple[str, str]]:
+        """Load a small representative set of local source files for LLM checks."""
+        ext_map = {
+            "typescript": [".ts", ".tsx", ".js", ".jsx"],
+            "javascript": [".js", ".jsx"],
+            "python": [".py"],
+            "rust": [".rs"],
+            "go": [".go"],
+        }
+        target_exts = ext_map.get(language, [".ts", ".js", ".py"])
+        skip_dirs = {"node_modules", "dist", "build", ".git", "target", "__pycache__", "venv"}
+
+        snippets: list[tuple[str, str]] = []
+        base_path = Path(directory)
+        for file_path in base_path.rglob("*"):
+            if not file_path.is_file():
+                continue
+            if any(part in skip_dirs for part in file_path.parts):
+                continue
+            if not any(file_path.name.endswith(ext) for ext in target_exts):
+                continue
+            try:
+                content = file_path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            snippets.append((str(file_path.relative_to(base_path)).replace("\\", "/"), content))
+            if len(snippets) >= limit:
+                break
+
+        return snippets
+
+    @staticmethod
+    def _normalize_tool_definitions(tools: list) -> list[dict]:
+        """Convert mixed manifest tool shapes into dict payloads for LLM analysis."""
+        normalized: list[dict] = []
+        for tool in tools:
+            if isinstance(tool, dict):
+                normalized.append(tool)
+            elif isinstance(tool, str):
+                normalized.append({"name": tool})
+        return normalized
 
     async def scan_running_server(
         self,

@@ -7,8 +7,11 @@ import hashlib
 import hmac
 import json
 
+from selqor_forge.dashboard.routes import cicd as cicd_routes
 
-def test_generate_github_actions(client):
+
+def test_generate_github_actions(client, monkeypatch):
+    monkeypatch.setattr(cicd_routes, "_resolve_install_tarball_url", lambda: "https://github.com/Selqor-Labs/Selqor-MCP-Forge/archive/abc123.tar.gz")
     resp = client.post("/api/cicd/generate", json={
         "targets": ["github_actions"],
         "branches": ["main"],
@@ -21,9 +24,12 @@ def test_generate_github_actions(client):
     assert "Selqor Forge Security Scan" in content
     assert "selqor-forge" in content
     assert "threshold" in content.lower()
+    assert "archive/abc123.tar.gz" in content
+    assert "refs/tags" not in content
 
 
-def test_generate_gitlab_ci(client):
+def test_generate_gitlab_ci(client, monkeypatch):
+    monkeypatch.setattr(cicd_routes, "_resolve_install_tarball_url", lambda: "https://github.com/Selqor-Labs/Selqor-MCP-Forge/archive/abc123.tar.gz")
     resp = client.post("/api/cicd/generate", json={
         "targets": ["gitlab_ci"],
     })
@@ -31,7 +37,8 @@ def test_generate_gitlab_ci(client):
     assert "gitlab_ci" in resp.json()["files"]
 
 
-def test_generate_pre_commit(client):
+def test_generate_pre_commit(client, monkeypatch):
+    monkeypatch.setattr(cicd_routes, "_resolve_install_tarball_url", lambda: "https://github.com/Selqor-Labs/Selqor-MCP-Forge/archive/abc123.tar.gz")
     resp = client.post("/api/cicd/generate", json={
         "targets": ["pre_commit"],
     })
@@ -41,14 +48,27 @@ def test_generate_pre_commit(client):
     assert "selqor-forge" in content
 
 
-def test_generate_invalid_targets_falls_back_to_default(client):
+def test_generate_invalid_targets_falls_back_to_default(client, monkeypatch):
     """Invalid target names get filtered; fallback to github_actions via resolved_targets."""
+    monkeypatch.setattr(cicd_routes, "_resolve_install_tarball_url", lambda: "https://github.com/Selqor-Labs/Selqor-MCP-Forge/archive/abc123.tar.gz")
     resp = client.post("/api/cicd/generate", json={
         "targets": ["invalid_target_name"],
     })
     # resolved_targets() falls back to ["github_actions"] when targets is empty
     assert resp.status_code == 200
     assert "github_actions" in resp.json()["files"]
+
+
+def test_generate_fails_without_pinned_install_ref(client, monkeypatch):
+    def _raise():
+        raise RuntimeError("Set SELQOR_FORGE_GIT_SHA before generating CI/CD templates.")
+
+    monkeypatch.setattr(cicd_routes, "_resolve_install_tarball_url", _raise)
+
+    resp = client.post("/api/cicd/generate", json={"targets": ["github_actions"]})
+
+    assert resp.status_code == 500
+    assert "SELQOR_FORGE_GIT_SHA" in resp.json()["detail"]
 
 
 def test_list_templates(client):

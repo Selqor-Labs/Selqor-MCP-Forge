@@ -102,13 +102,13 @@ def _generate_typescript_target(
     src_dir = target_root / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
 
-    (target_root / "package.json").write_text(templates.ts_package_json())
-    (target_root / "tsconfig.json").write_text(templates.ts_tsconfig())
-    (target_root / ".env.example").write_text(templates.ts_env_example())
-    (target_root / "README.md").write_text(templates.ts_readme())
+    (target_root / "package.json").write_text(templates.ts_package_json(), encoding="utf-8")
+    (target_root / "tsconfig.json").write_text(templates.ts_tsconfig(), encoding="utf-8")
+    (target_root / ".env.example").write_text(templates.ts_env_example(), encoding="utf-8")
+    (target_root / "README.md").write_text(templates.ts_readme(), encoding="utf-8")
 
     _write_json(src_dir / "plan.json", plan)
-    (src_dir / "index.ts").write_text(templates.ts_index(default_transport))
+    (src_dir / "index.ts").write_text(templates.ts_index(default_transport), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -132,11 +132,11 @@ def _generate_rust_target(
     src_dir = target_root / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
 
-    (target_root / "Cargo.toml").write_text(templates.rust_cargo_toml())
-    (target_root / "README.md").write_text(templates.rust_readme())
+    (target_root / "Cargo.toml").write_text(templates.rust_cargo_toml(), encoding="utf-8")
+    (target_root / "README.md").write_text(templates.rust_readme(), encoding="utf-8")
 
     _write_json(src_dir / "plan.json", plan)
-    (src_dir / "main.rs").write_text(templates.rust_main(default_transport))
+    (src_dir / "main.rs").write_text(templates.rust_main(default_transport), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -149,11 +149,11 @@ def _write_json(path: Path, value: object) -> None:
     from pydantic import BaseModel
 
     if isinstance(value, BaseModel):
-        data = value.model_dump(by_alias=True)
+        data = value.model_dump(by_alias=True, mode="json")
     else:
         data = value  # type: ignore[assignment]
 
-    path.write_text(json.dumps(data, indent=2))
+    path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
 
 
 def _transport_name(mode: TransportMode) -> str:

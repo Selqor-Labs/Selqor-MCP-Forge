@@ -1,28 +1,14 @@
 # Copyright (c) Selqor Labs.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Authentication API endpoints.
-
-Authentication is disabled — the dashboard is fully open to everyone.
-These endpoints exist for API compatibility but return anonymous/open responses.
-"""
+"""Authentication API endpoints for the local-only public dashboard."""
 
 from __future__ import annotations
 
-import logging
-
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from selqor_forge.dashboard.context import is_safe_token
-from selqor_forge.dashboard.middleware import (
-    Ctx,
-    OrgId,
-    User,
-    auth_placeholder_config,
-)
-
-logger = logging.getLogger(__name__)
+from selqor_forge.dashboard.middleware import auth_placeholder_config, local_only_feature_error
 
 router = APIRouter()
 
@@ -34,96 +20,48 @@ router = APIRouter()
 
 @router.get("/auth/config")
 def get_auth_config() -> JSONResponse:
-    """Return auth configuration — always reports auth as disabled."""
+    """Return capability metadata for the public local-only build."""
     return JSONResponse(status_code=200, content=auth_placeholder_config())
 
 
 # ---------------------------------------------------------------------------
-# GET /auth/me
+# Shared dashboard auth/org endpoints are intentionally disabled
 # ---------------------------------------------------------------------------
 
 
 @router.get("/auth/me")
-def get_auth_me(ctx: Ctx, user: User) -> JSONResponse:
-    """Return anonymous user profile — dashboard is open."""
-    return JSONResponse(
-        status_code=200,
-        content={
-            "user_id": "anonymous",
-            "email": None,
-            "name": "Anonymous User",
-            "role": "admin",
-            "auth_enabled": False,
-            "organizations": [],
-        },
-    )
-
-
-# ---------------------------------------------------------------------------
-# GET /auth/context
-# ---------------------------------------------------------------------------
+def get_auth_me() -> JSONResponse:
+    """Shared-user auth is not part of the local-only public build."""
+    raise local_only_feature_error("auth")
 
 
 @router.get("/auth/context")
-def get_auth_context(user: User, org_id: OrgId) -> JSONResponse:
-    """Return the current user_id and effective org_id."""
-    return JSONResponse(
-        status_code=200,
-        content={"user_id": "anonymous", "org_id": org_id, "auth_enabled": False},
-    )
-
-
-# ---------------------------------------------------------------------------
-# GET /users/me/onboarding-status
-# ---------------------------------------------------------------------------
+def get_auth_context() -> JSONResponse:
+    """Shared auth context is not available in the local-only public build."""
+    raise local_only_feature_error("auth")
 
 
 @router.get("/users/me/onboarding-status")
-def get_onboarding_status(ctx: Ctx, user: User) -> JSONResponse:
-    """Return onboarding status."""
-    return JSONResponse(
-        status_code=200,
-        content={
-            "needs_onboarding": False,
-            "has_organizations": True,
-            "pending_invites_count": 0,
-            "organizations_count": 1,
-        },
-    )
-
-
-# ---------------------------------------------------------------------------
-# GET /users/me/pending-invites
-# ---------------------------------------------------------------------------
+def get_onboarding_status() -> JSONResponse:
+    """Onboarding is disabled in the local-only public build."""
+    raise local_only_feature_error("onboarding")
 
 
 @router.get("/users/me/pending-invites")
-def get_pending_invites(ctx: Ctx, user: User) -> JSONResponse:
-    """List pending organisation invites — always empty."""
-    return JSONResponse(status_code=200, content=[])
-
-
-# ---------------------------------------------------------------------------
-# POST /users/me/invites/{invite_id}/accept
-# ---------------------------------------------------------------------------
+def get_pending_invites() -> JSONResponse:
+    """Team invites are disabled in the local-only public build."""
+    raise local_only_feature_error("team_invites")
 
 
 @router.post("/users/me/invites/{invite_id}/accept")
-def accept_invite(ctx: Ctx, user: User, invite_id: str) -> JSONResponse:
-    """Accept a pending organisation invite."""
-    if not is_safe_token(invite_id):
-        raise HTTPException(status_code=400, detail="invalid invite id")
-    raise HTTPException(status_code=404, detail="Invitation not found")
-
-
-# ---------------------------------------------------------------------------
-# POST /users/me/invites/{invite_id}/decline
-# ---------------------------------------------------------------------------
+def accept_invite(invite_id: str) -> JSONResponse:
+    """Team invites are disabled in the local-only public build."""
+    del invite_id
+    raise local_only_feature_error("team_invites")
 
 
 @router.post("/users/me/invites/{invite_id}/decline")
-def decline_invite(ctx: Ctx, user: User, invite_id: str) -> JSONResponse:
-    """Decline a pending organisation invite."""
-    if not is_safe_token(invite_id):
-        raise HTTPException(status_code=400, detail="invalid invite id")
-    raise HTTPException(status_code=404, detail="Invitation not found")
+def decline_invite(invite_id: str) -> JSONResponse:
+    """Team invites are disabled in the local-only public build."""
+    del invite_id
+    raise local_only_feature_error("team_invites")

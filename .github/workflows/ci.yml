@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - forge-mcp
   pull_request:
 
 jobs:
@@ -39,7 +38,7 @@ jobs:
       - name: Ruff
         run: ruff check .
       - name: Mypy
-        run: mypy --follow-imports=skip src/selqor_forge/dashboard/secrets.py
+        run: mypy --follow-imports=skip --ignore-missing-imports --disable-error-code=misc src/selqor_forge/dashboard/middleware.py src/selqor_forge/dashboard/routes/auth_routes.py src/selqor_forge/dashboard/routes/org_routes.py
       - name: Run backend tests
         run: pytest -q
       - name: pip-audit
@@ -80,3 +79,24 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
       - name: Gitleaks
         run: gitleaks detect --source . --config .gitleaks.toml --verbose
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start local demo stack
+        run: docker compose up -d --build
+      - name: Wait for dashboard readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8787/health/ready > ready.json; then
+              cat ready.json
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs
+          exit 1
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v

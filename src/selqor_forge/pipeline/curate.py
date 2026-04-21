@@ -141,10 +141,11 @@ def curate(
             f"{len(ranked) - _HARD_TOOL_CAP} smallest tools to search_api"
         )
 
-    # Phase 3: Create one search_api if there's any overflow
+    # Phase 3: Create overflow discovery + execution tools if there's any overflow
     if search_api_overflow:
         deduped = sorted(set(search_api_overflow))
         tools.append(_search_api_tool(surface, deduped))
+        tools.append(_execute_overflow_operation_tool(surface, deduped))
 
     if config.include_custom_request_tool and not any(
         t.name == "custom_request" for t in tools
@@ -567,10 +568,7 @@ def _ensure_endpoint_coverage(
         matching_tool = tool_by_domain.get(ep.domain)
         if matching_tool is not None:
             matching_tool.covered_endpoints.append(ep.id)
-            # Update the operation enum in the schema
-            op_schema = matching_tool.input_schema.get("properties", {}).get("operation", {})
-            if isinstance(op_schema.get("enum"), list):
-                op_schema["enum"].append(ep.id)
+            _rebuild_tool_schema(matching_tool, endpoint_by_id)
             absorbed += 1
         else:
             still_uncovered.append(ep)
@@ -731,8 +729,9 @@ def _search_api_tool(
         name="search_api",
         description=(
             "Search for API operations not covered by the primary tools. "
-            "Describe what you need (e.g., 'get user playlists', 'delete a track') "
-            "and this tool returns matching operations you can call via custom_request. "
+            "Describe what you need (e.g., 'create invoice', 'refund payment') "
+            "and this tool returns matching operations you can inspect. "
+            "Use execute_overflow_operation with an explicit operation id to execute one of those matches. "
             f"Covers {len(searchable_endpoint_ids)} additional operations."
         ),
         covered_endpoints=searchable_endpoint_ids,
@@ -746,17 +745,35 @@ def _search_api_tool(
                         "The search matches against endpoint paths, summaries, and domains."
                     ),
                 },
-                "operation": {
-                    "type": "string",
-                    "description": (
-                        "If you already know the operation id, pass it directly to "
-                        "get its full details (method, path, parameters)."
-                    ),
-                    "enum": searchable_endpoint_ids,
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of matching operations to return.",
+                    "minimum": 1,
+                    "maximum": 25,
                 },
             },
-            "required": [],
+            "required": ["query"],
         },
+        confidence=0.0,
+    )
+
+
+def _execute_overflow_operation_tool(
+    surface: UasfSurface,
+    endpoint_ids: list[str],
+) -> ToolDefinition:
+    """Build a generic execution tool for overflow operations."""
+    endpoint_by_id = {ep.id: ep for ep in surface.endpoints}
+    endpoints = [endpoint_by_id[eid] for eid in endpoint_ids if eid in endpoint_by_id]
+
+    return ToolDefinition(
+        name="execute_overflow_operation",
+        description=(
+            "Execute an overflow API operation returned by search_api. "
+            "Provide an explicit operation id plus any required path params, query, headers, or body."
+        ),
+        covered_endpoints=endpoint_ids,
+        input_schema=_build_schema_for_endpoints(endpoints, endpoint_ids),
         confidence=0.0,
     )
 
@@ -828,36 +845,52 @@ def _build_schema_for_endpoints(
 ) -> dict[str, Any]:
     path_params = _parameters_schema(endpoints, "path")
     query_params = _parameters_schema(endpoints, "query")
+    properties: dict[str, Any] = {
+        "path_params": path_params,
+        "query": query_params,
+        "body": {
+            "description": "Optional request body",
+            "type": [
+                "object",
+                "array",
+                "string",
+                "number",
+                "boolean",
+                "null",
+            ],
+        },
+        "headers": {
+            "type": "object",
+            "description": "Optional request headers",
+            "additionalProperties": {"type": "string"},
+        },
+    }
+    required: list[str] = []
+
+    if len(endpoint_ids) > 1:
+        properties["operation"] = {
+            "type": "string",
+            "description": "Operation id to execute",
+            "enum": endpoint_ids,
+        }
+        required.append("operation")
 
     return {
         "type": "object",
-        "properties": {
-            "operation": {
-                "type": "string",
-                "description": "Operation id to execute",
-                "enum": endpoint_ids,
-            },
-            "path_params": path_params,
-            "query": query_params,
-            "body": {
-                "description": "Optional request body",
-                "type": [
-                    "object",
-                    "array",
-                    "string",
-                    "number",
-                    "boolean",
-                    "null",
-                ],
-            },
-            "headers": {
-                "type": "object",
-                "description": "Optional request headers",
-                "additionalProperties": {"type": "string"},
-            },
-        },
-        "required": ["operation"],
+        "properties": properties,
+        "required": required,
     }
+
+
+def _rebuild_tool_schema(
+    tool: ToolDefinition,
+    endpoint_by_id: dict[str, UasfEndpoint],
+) -> None:
+    """Rebuild a tool schema from its current endpoint coverage."""
+    endpoint_ids = sorted(set(tool.covered_endpoints))
+    endpoints = [endpoint_by_id[eid] for eid in endpoint_ids if eid in endpoint_by_id]
+    tool.covered_endpoints = endpoint_ids
+    tool.input_schema = _build_schema_for_endpoints(endpoints, endpoint_ids)
 
 
 def _parameters_schema(

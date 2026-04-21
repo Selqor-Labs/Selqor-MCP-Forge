@@ -19,12 +19,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python dependencies
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir .
-
 # Copy source code
 COPY src/ ./src/
+COPY README.md LICENSE pyproject.toml ./
 
 # Copy built React frontend
 COPY --from=frontend /app/frontend/dist ./src/dashboard/frontend/dist
@@ -32,12 +29,21 @@ COPY --from=frontend /app/frontend/dist ./src/dashboard/frontend/dist
 # Copy logo assets
 COPY selqorLogos/ ./selqorLogos/
 
-# Non-root user for security
-RUN useradd --create-home --shell /bin/bash selqor
+# Install dependencies after the source tree is available so the runtime can
+# import the copied application tree and serve bundled assets correctly.
+RUN pip install --no-cache-dir .
+
+# Non-root user for security. Give the runtime a writable dashboard state dir
+# so the local demo stack can start without requiring elevated permissions.
+RUN useradd --create-home --shell /bin/bash selqor \
+    && mkdir -p /home/selqor/dashboard \
+    && chown -R selqor:selqor /home/selqor
+
 USER selqor
 
 EXPOSE 8787
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app/src
 
-CMD ["python", "-m", "selqor_forge", "dashboard", "--port", "8787", "--host", "0.0.0.0"]
+CMD ["python", "-m", "selqor_forge", "dashboard", "--state", "/home/selqor/dashboard", "--port", "8787", "--host", "0.0.0.0", "--i-know-what-im-doing"]

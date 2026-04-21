@@ -65,8 +65,19 @@ const DEFAULT_POLICY = {
   auto_fail_on_critical: true,
 };
 
+function normalizePreferences(prefs) {
+  const next = { ...(prefs || {}) };
+  next.theme = next.theme === 'dark' ? 'dark' : 'light';
+  next.default_scan_mode = next.default_scan_mode === 'full' ? 'full' : 'basic';
+  if (typeof next.notifications_enabled !== 'boolean') next.notifications_enabled = true;
+  if (typeof next.auto_remediate !== 'boolean') next.auto_remediate = false;
+  if (!next.dashboard_layout) next.dashboard_layout = 'default';
+  return next;
+}
+
 export default function Settings() {
   const toast = useStore((s) => s.toast);
+  const authConfig = useStore((s) => s.authConfig);
   const [tab, setTab] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -91,7 +102,7 @@ export default function Settings() {
   async function loadPrefs() {
     try {
       const p = await fetchPreferences();
-      setPrefs(p);
+      setPrefs(normalizePreferences(p));
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -133,7 +144,8 @@ export default function Settings() {
     if (!prefs) return;
     setSavingPrefs(true);
     try {
-      await savePreferences(prefs);
+      const saved = await savePreferences(normalizePreferences(prefs));
+      setPrefs(normalizePreferences(saved));
       toast('Preferences saved');
     } catch (err) {
       toast(err.message, 'error');
@@ -246,6 +258,13 @@ export default function Settings() {
           Export All Data
         </Button>
       </Box>
+
+      {authConfig?.local_only && (
+        <Alert severity="info" sx={{ mb: 3, maxWidth: 760 }}>
+          {authConfig.message} API auth for integrations is supported, but shared dashboard auth,
+          organizations, and team management are intentionally disabled in this public build.
+        </Alert>
+      )}
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs

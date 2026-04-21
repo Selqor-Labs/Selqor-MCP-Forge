@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 
 import httpx
@@ -48,12 +49,15 @@ class CVEChecker:
             for package_name, version in dependencies.items():
                 try:
                     # Query OSV API
+                    request_json = {
+                        "package": {"ecosystem": ecosystem, "name": package_name},
+                    }
+                    normalized_version = CVEChecker._normalize_dependency_version(version)
+                    if normalized_version is not None:
+                        request_json["version"] = normalized_version
                     response = await client.post(
                         "https://api.osv.dev/v1/query",
-                        json={
-                            "package": {"ecosystem": ecosystem, "name": package_name},
-                            "version": version,
-                        },
+                        json=request_json,
                     )
 
                     if response.status_code == 200:
@@ -61,7 +65,7 @@ class CVEChecker:
                         vulns = data.get("vulns", [])
 
                         for vuln in vulns:
-                            severity = vuln.get("severity", "UNKNOWN")
+                            severity = vuln.get("severity")
                             risk_level = CVEChecker._severity_to_risk(severity)
 
                             finding = SecurityFinding(
@@ -75,9 +79,11 @@ class CVEChecker:
                                 metadata={
                                     "package": package_name,
                                     "version": version,
+                                    "resolved_version": normalized_version,
                                     "ecosystem": ecosystem,
                                     "affected": vuln.get("affected", []),
                                     "references": vuln.get("references", []),
+                                    "severity": severity,
                                 },
                             )
                             findings.append(finding)
@@ -167,9 +173,33 @@ class CVEChecker:
         return findings
 
     @staticmethod
-    def _severity_to_risk(severity: str) -> RiskLevel:
+    def _normalize_dependency_version(version: str | None) -> str | None:
+        """Normalize dependency versions for OSV package queries.
+
+        OSV expects a concrete version when using the package query API. If the
+        dependency is unpinned or only has a range/specifier, omit the version
+        rather than sending a malformed package name or invalid version string.
+        """
+        if version is None:
+            return None
+
+        cleaned = version.strip()
+        if not cleaned or cleaned == "*":
+            return None
+
+        exact_match = re.fullmatch(r"(?:==|===)\s*([^\s,;]+)", cleaned)
+        if exact_match:
+            return exact_match.group(1)
+
+        if any(token in cleaned for token in ("<", ">", "~", "^", "!", ",")):
+            return None
+
+        return cleaned
+
+    @staticmethod
+    def _severity_to_risk(severity: object) -> RiskLevel:
         """Convert CVE severity to risk level."""
-        severity = severity.upper()
+        severity = CVEChecker._severity_to_label(severity).upper()
         if severity in ("CRITICAL", "C"):
             return RiskLevel.CRITICAL
         elif severity in ("HIGH", "H"):
@@ -180,3 +210,64 @@ class CVEChecker:
             return RiskLevel.LOW
         else:
             return RiskLevel.INFO
+
+    @staticmethod
+    def _severity_to_label(severity: object) -> str:
+        """Extract a human-readable severity label from OSV/Trivy payloads."""
+        if severity is None:
+            return "UNKNOWN"
+
+        if isinstance(severity, str):
+            text = severity.strip()
+            if not text:
+                return "UNKNOWN"
+            numeric = CVEChecker._extract_numeric_severity(text)
+            if numeric is not None:
+                return CVEChecker._cvss_score_to_label(numeric)
+            return text
+
+        if isinstance(severity, (int, float)):
+            return CVEChecker._cvss_score_to_label(float(severity))
+
+        if isinstance(severity, dict):
+            for key in ("severity", "level", "score"):
+                if key in severity:
+                    return CVEChecker._severity_to_label(severity.get(key))
+            return "UNKNOWN"
+
+        if isinstance(severity, list):
+            labels = [CVEChecker._severity_to_label(entry) for entry in severity]
+            label_order = {
+                "CRITICAL": 4,
+                "HIGH": 3,
+                "MEDIUM": 2,
+                "LOW": 1,
+                "INFO": 0,
+                "UNKNOWN": -1,
+            }
+            return max(labels, key=lambda label: label_order.get(label.upper(), -1), default="UNKNOWN")
+
+        return "UNKNOWN"
+
+    @staticmethod
+    def _extract_numeric_severity(value: str) -> float | None:
+        """Pull a CVSS-style numeric score from a freeform severity string."""
+        match = re.search(r"(\d+(?:\.\d+)?)", value)
+        if match is None:
+            return None
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _cvss_score_to_label(score: float) -> str:
+        if score >= 9.0:
+            return "CRITICAL"
+        if score >= 7.0:
+            return "HIGH"
+        if score >= 4.0:
+            return "MEDIUM"
+        if score > 0:
+            return "LOW"
+        return "INFO"

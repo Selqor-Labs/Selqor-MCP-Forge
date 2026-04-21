@@ -26,14 +26,14 @@ def ts_package_json() -> str:
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.8.0",
-    "express": "^4.21.2"
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "express": "4.22.1"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21",
-    "@types/node": "^24.3.0",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "@types/express": "4.17.21",
+    "@types/node": "24.3.0",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
   }
 }
 """
@@ -94,6 +94,10 @@ FORGE_OAUTH_AUDIENCE=
 # Transport: stdio or http
 FORGE_TRANSPORT=stdio
 FORGE_HTTP_PORT=3333
+FORGE_HTTP_AUTH_TOKEN=
+FORGE_HTTP_RATE_LIMIT_WINDOW_MS=60000
+FORGE_HTTP_RATE_LIMIT_MAX=120
+FORGE_ALLOW_PRIVATE_HOSTS=false
 
 # Resilience
 FORGE_REQUEST_TIMEOUT_MS=15000
@@ -122,6 +126,8 @@ npm run dev
 - Set `FORGE_BASE_URL` and auth env vars before running.
 - `FORGE_TRANSPORT=stdio` runs local stdio transport.
 - `FORGE_TRANSPORT=http` runs HTTP/SSE transport at `/sse` and `/messages`.
+- HTTP transport requires `FORGE_HTTP_AUTH_TOKEN` and applies basic in-memory rate limiting.
+- `FORGE_ALLOW_PRIVATE_HOSTS=true` is available for trusted internal APIs and token endpoints.
 - Optional attribution to Selqor Labs is appreciated but not required.
 """
 
@@ -141,7 +147,7 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import express from "express";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -158,6 +164,10 @@ type EndpointDef = {
   id: string;
   method: string;
   path: string;
+  summary?: string;
+  description?: string;
+  domain?: string;
+  tags?: string[];
   security: string[];
 };
 
@@ -167,12 +177,19 @@ type ToolPlan = {
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const planPath = existsSync(join(__dirname, "plan.json"))
+  ? join(__dirname, "plan.json")
+  : join(__dirname, "..", "src", "plan.json");
 const plan = JSON.parse(
-  readFileSync(join(__dirname, "plan.json"), "utf-8")
+  readFileSync(planPath, "utf-8")
 ) as ToolPlan;
 
-const baseUrl = process.env.FORGE_BASE_URL ?? "";
+const rawBaseUrl = process.env.FORGE_BASE_URL ?? "";
 const defaultTransport = "{{DEFAULT_TRANSPORT}}";
+const allowPrivateHosts = (process.env.FORGE_ALLOW_PRIVATE_HOSTS ?? "false").toLowerCase() === "true";
+const baseUrl = rawBaseUrl
+  ? validateConfiguredUrl(rawBaseUrl, "FORGE_BASE_URL")
+  : "";
 
 const server = new Server(
   {
@@ -207,6 +224,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   const args = (request.params.arguments ?? {}) as JsonObject;
 
+  if (tool.name === "search_api") {
+    const query = getString(args.query)?.trim();
+    if (!query) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: "search_api requires query" }],
+      };
+    }
+
+    const limit = getInteger(args.limit) ?? 10;
+    const matches = findSearchMatches(query, tool.covered_endpoints);
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          query,
+          total_matches: matches.length,
+          matches: matches.slice(0, Math.max(1, Math.min(limit, 25))),
+          next_step: "Call execute_overflow_operation with one of the returned operation ids to execute it.",
+        }, null, 2),
+      }],
+    };
+  }
+
   if (tool.name === "custom_request") {
     const method = getString(args.method)?.toUpperCase();
     const path = getString(args.path);
@@ -230,31 +271,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
-  const operation = getString(args.operation) ?? tool.covered_endpoints[0];
+  const operation = tool.covered_endpoints.length === 1
+    ? tool.covered_endpoints[0]
+    : getString(args.operation);
   if (!operation) {
     return {
       isError: true,
-      content: [{ type: "text", text: `Tool ${tool.name} has no operations` }],
+      content: [{ type: "text", text: `Tool ${tool.name} requires an explicit operation` }],
     };
   }
 
-  const endpoint = plan.endpoint_catalog[operation];
-  if (!endpoint) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: `Unknown operation: ${operation}` }],
-    };
-  }
-
-  const result = await rawRequest({
-    method: endpoint.method.toUpperCase(),
-    path: endpoint.path,
-    pathParams: asRecord(args.path_params),
-    query: asRecord(args.query),
-    headers: asRecord(args.headers),
-    body: args.body,
-  });
-
+  const result = await executeOperation(operation, args);
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
   };
@@ -264,10 +291,104 @@ function getString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function getInteger(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) ? value : undefined;
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
+}
+
+type SearchMatch = {
+  operation: string;
+  method: string;
+  path: string;
+  summary: string;
+  domain: string;
+  score: number;
+};
+
+async function executeOperation(operation: string, args: JsonObject): Promise<unknown> {
+  const endpoint = plan.endpoint_catalog[operation];
+  if (!endpoint) {
+    throw new Error(`Unknown operation: ${operation}`);
+  }
+
+  return rawRequest({
+    method: endpoint.method.toUpperCase(),
+    path: endpoint.path,
+    pathParams: asRecord(args.path_params),
+    query: asRecord(args.query),
+    headers: asRecord(args.headers),
+    body: args.body,
+  });
+}
+
+function tokenizeSearchQuery(query: string): string[] {
+  return [...new Set(
+    query
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 2)
+  )];
+}
+
+function findSearchMatches(query: string, operationIds: string[]): SearchMatch[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  const terms = tokenizeSearchQuery(query);
+
+  const matches = operationIds.flatMap((operation) => {
+    const endpoint = plan.endpoint_catalog[operation];
+    if (!endpoint) {
+      return [];
+    }
+
+    const searchableParts = [
+      operation,
+      endpoint.method,
+      endpoint.path,
+      endpoint.summary ?? "",
+      endpoint.description ?? "",
+      endpoint.domain ?? "",
+      ...(endpoint.tags ?? []),
+    ].map((value) => value.toLowerCase());
+
+    let score = 0;
+    for (const part of searchableParts) {
+      if (!part) {
+        continue;
+      }
+      if (part.includes(normalizedQuery)) {
+        score += 5;
+      }
+      for (const term of terms) {
+        if (part.includes(term)) {
+          score += 1;
+        }
+      }
+    }
+
+    if (score === 0) {
+      return [];
+    }
+
+    return [{
+      operation,
+      method: endpoint.method.toUpperCase(),
+      path: endpoint.path,
+      summary: endpoint.summary ?? endpoint.description ?? "",
+      domain: endpoint.domain ?? "",
+      score,
+    }];
+  });
+
+  return matches.sort((left, right) => (
+    right.score - left.score ||
+    left.operation.localeCompare(right.operation)
+  ));
 }
 
 type RequestArgs = {
@@ -342,6 +463,81 @@ function log(level: "info" | "warn" | "error", component: string, msg: string, e
   console.error(JSON.stringify(entry));
 }
 
+function validateConfiguredUrl(value: string, envName: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${envName} must be a valid absolute URL`);
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(`${envName} must use http or https`);
+  }
+
+  if (!parsed.hostname) {
+    throw new Error(`${envName} must include a hostname`);
+  }
+
+  if (!allowPrivateHosts && isBlockedHostname(parsed.hostname)) {
+    throw new Error(`${envName} points to a private or loopback host; set FORGE_ALLOW_PRIVATE_HOSTS=true only for trusted internal targets`);
+  }
+
+  return parsed.toString();
+}
+
+function isBlockedHostname(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+  if (normalized === "localhost" || normalized.endsWith(".localhost")) {
+    return true;
+  }
+  if (normalized === "::1") {
+    return true;
+  }
+  if (normalized.startsWith("[") && normalized.endsWith("]")) {
+    return isBlockedHostname(normalized.slice(1, -1));
+  }
+
+  if (/^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(normalized)) {
+    const octets = normalized.split(".").map((part) => Number(part));
+    const [first, second] = octets;
+    return (
+      first === 0 ||
+      first === 10 ||
+      first === 127 ||
+      (first === 169 && second === 254) ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    );
+  }
+
+  return false;
+}
+
+function validateRelativePath(path: string): string {
+  const trimmed = path.trim();
+  if (!trimmed) {
+    throw new Error("Request path is required");
+  }
+  if (trimmed.includes("://") || trimmed.startsWith("//")) {
+    throw new Error("Request path must be relative to FORGE_BASE_URL");
+  }
+  if (/[\\r\\n]/.test(trimmed)) {
+    throw new Error("Request path contains invalid control characters");
+  }
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+function buildApiUrl(path: string, query: URLSearchParams): URL {
+  const targetApiUrl = new URL(baseUrl);
+  targetApiUrl.pathname = `${targetApiUrl.pathname.replace(/\\/+$/, "")}${validateRelativePath(path)}`;
+  targetApiUrl.search = query.toString();
+  return targetApiUrl;
+}
+
 async function rawRequest(args: RequestArgs): Promise<unknown> {
   if (!baseUrl) {
     throw new Error("FORGE_BASE_URL is required");
@@ -349,7 +545,7 @@ async function rawRequest(args: RequestArgs): Promise<unknown> {
 
   circuitCheck();
 
-  const path = substitutePathParams(args.path, args.pathParams ?? {});
+  const path = validateRelativePath(substitutePathParams(args.path, args.pathParams ?? {}));
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(args.query ?? {})) {
     if (value !== null && value !== undefined) {
@@ -362,13 +558,7 @@ async function rawRequest(args: RequestArgs): Promise<unknown> {
   };
 
   await applyAuth(headers, query);
-
-  const normalizedBase = baseUrl.replace(/\\/+$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const url = new URL(normalizedBase + normalizedPath);
-  if ([...query.keys()].length > 0) {
-    url.search = query.toString();
-  }
+  const targetApiUrl = buildApiUrl(path, query);
   if (args.body !== undefined && args.body !== null) {
     headers["content-type"] = headers["content-type"] ?? "application/json";
   }
@@ -377,7 +567,7 @@ async function rawRequest(args: RequestArgs): Promise<unknown> {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
       const delay = RETRY_BASE_MS * Math.pow(2, attempt - 1) + Math.random() * 100;
-      log("info", "http", `retry ${attempt}/${MAX_RETRIES} after ${Math.round(delay)}ms`, { url: url.toString(), method: args.method });
+      log("info", "http", `retry ${attempt}/${MAX_RETRIES} after ${Math.round(delay)}ms`, { url: targetApiUrl.toString(), method: args.method });
       await new Promise((r) => setTimeout(r, delay));
       circuitCheck();
     }
@@ -387,7 +577,7 @@ async function rawRequest(args: RequestArgs): Promise<unknown> {
 
     try {
       const started = Date.now();
-      const response = await fetch(url, {
+      const response = await fetch(targetApiUrl.toString(), {
         method: args.method,
         headers,
         body: args.body === undefined || args.body === null ? undefined : JSON.stringify(args.body),
@@ -454,9 +644,26 @@ function substitutePathParams(path: string, params: Record<string, unknown>): st
 
 function toStringRecord(source: Record<string, unknown>): Record<string, string> {
   const result: Record<string, string> = {};
+  const blockedHeaders = new Set([
+    "connection",
+    "content-length",
+    "host",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+  ]);
   for (const [key, value] of Object.entries(source)) {
     if (value !== undefined && value !== null) {
-      result[key.toLowerCase()] = String(value);
+      const normalizedKey = key.trim().toLowerCase();
+      if (!normalizedKey || !/^[a-z0-9-]+$/.test(normalizedKey)) {
+        continue;
+      }
+      if (blockedHeaders.has(normalizedKey)) {
+        continue;
+      }
+      result[normalizedKey] = String(value);
     }
   }
   return result;
@@ -568,6 +775,7 @@ async function getDynamicTokenHeader(): Promise<{ headerName: string; headerValu
   if (!tokenUrl) {
     return null;
   }
+  const validatedTokenUrl = validateConfiguredUrl(tokenUrl, "FORGE_DYNAMIC_TOKEN_URL");
 
   const headerName = process.env.FORGE_DYNAMIC_TOKEN_HEADER_NAME || "Authorization";
   const headerPrefix = process.env.FORGE_DYNAMIC_TOKEN_HEADER_PREFIX || "Bearer";
@@ -594,7 +802,7 @@ async function getDynamicTokenHeader(): Promise<{ headerName: string; headerValu
     },
   };
 
-  let requestUrl = tokenUrl;
+  const tokenEndpoint = new URL(validatedTokenUrl);
   if (method === "GET") {
     const query = new URLSearchParams();
     const data = requestBody && typeof requestBody === "object"
@@ -605,14 +813,12 @@ async function getDynamicTokenHeader(): Promise<{ headerName: string; headerValu
         query.set(key, String(value));
       }
     }
-    if ([...query.keys()].length > 0) {
-      requestUrl += (requestUrl.includes("?") ? "&" : "?") + query.toString();
-    }
+    tokenEndpoint.search = query.toString();
   } else {
     options.body = JSON.stringify(requestBody || {});
   }
 
-  const response = await fetch(requestUrl, options);
+  const response = await fetch(tokenEndpoint.href, options);
   if (!response.ok) {
     throw new Error(`Dynamic token request failed: ${response.status}`);
   }
@@ -651,6 +857,7 @@ async function getOAuthToken(): Promise<string | null> {
   if (!tokenUrl || !clientId || !clientSecret) {
     return null;
   }
+  const oauthEndpoint = new URL(validateConfiguredUrl(tokenUrl, "FORGE_OAUTH_TOKEN_URL"));
 
   const now = Date.now();
   if (oauthTokenCache && oauthTokenCache.expiresAt > now + 10_000) {
@@ -671,7 +878,7 @@ async function getOAuthToken(): Promise<string | null> {
     form.set("audience", audience);
   }
 
-  const response = await fetch(tokenUrl, {
+  const response = await fetch(oauthEndpoint.href, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
@@ -712,11 +919,26 @@ async function runStdio(): Promise<void> {
 async function runHttp(): Promise<void> {
   const app = express();
   app.use(express.json({ limit: "2mb" }));
+  const httpAuthToken = process.env.FORGE_HTTP_AUTH_TOKEN;
+  if (!httpAuthToken) {
+    throw new Error("FORGE_HTTP_AUTH_TOKEN is required when FORGE_TRANSPORT=http");
+  }
+  const rateLimiter = createRateLimiter();
 
   let transport: SSEServerTransport | null = null;
 
+  function requireHttpAuth(req: express.Request, res: express.Response, next: express.NextFunction): void {
+    const header = req.header("authorization") ?? req.header("x-forge-auth") ?? "";
+    const expectedBearer = `Bearer ${httpAuthToken}`;
+    if (header !== httpAuthToken && header !== expectedBearer) {
+      res.status(401).json({ error: "HTTP transport requires a valid FORGE_HTTP_AUTH_TOKEN" });
+      return;
+    }
+    next();
+  }
+
   // Health endpoint for monitoring
-  app.get("/health", (_req, res) => {
+  app.get("/health", rateLimiter, (_req, res) => {
     res.json({
       status: "healthy",
       started_at: startedAt,
@@ -727,12 +949,12 @@ async function runHttp(): Promise<void> {
     });
   });
 
-  app.get("/sse", async (_req, res) => {
+  app.get("/sse", rateLimiter, requireHttpAuth, async (_req, res) => {
     transport = new SSEServerTransport("/messages", res);
     await server.connect(transport);
   });
 
-  app.post("/messages", async (req, res) => {
+  app.post("/messages", rateLimiter, requireHttpAuth, async (req, res) => {
     if (!transport) {
       res.status(400).json({ error: "No active SSE transport. Connect /sse first." });
       return;
@@ -757,6 +979,36 @@ async function runHttp(): Promise<void> {
   }
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("SIGINT", () => shutdown("SIGINT"));
+}
+
+function createRateLimiter(): express.RequestHandler {
+  const windowMs = Number(process.env.FORGE_HTTP_RATE_LIMIT_WINDOW_MS ?? "60000");
+  const maxRequests = Number(process.env.FORGE_HTTP_RATE_LIMIT_MAX ?? "120");
+  const safeWindowMs = Number.isFinite(windowMs) && windowMs > 0 ? windowMs : 60000;
+  const safeMaxRequests = Number.isFinite(maxRequests) && maxRequests > 0 ? maxRequests : 120;
+  const counters = new Map<string, { count: number; resetAt: number }>();
+
+  return (req, res, next) => {
+    const now = Date.now();
+    const clientKey = req.ip || req.socket.remoteAddress || "unknown";
+    const existing = counters.get(clientKey);
+
+    if (!existing || existing.resetAt <= now) {
+      counters.set(clientKey, { count: 1, resetAt: now + safeWindowMs });
+      next();
+      return;
+    }
+
+    existing.count += 1;
+    if (existing.count > safeMaxRequests) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((existing.resetAt - now) / 1000));
+      res.setHeader("retry-after", String(retryAfterSeconds));
+      res.status(429).json({ error: "Rate limit exceeded" });
+      return;
+    }
+
+    next();
+  };
 }
 
 const transport = (process.env.FORGE_TRANSPORT ?? defaultTransport).toLowerCase();
@@ -852,6 +1104,14 @@ struct ToolDefinition {
 struct EndpointDefinition {
     method: String,
     path: String,
+    #[serde(default)]
+    summary: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    domain: String,
+    #[serde(default)]
+    tags: Vec<String>,
     security: Vec<String>,
 }
 
@@ -960,6 +1220,11 @@ fn execute_tool_call(plan: &ToolPlan, params: Option<&Value>) -> Result<Value> {
         .cloned()
         .unwrap_or_default();
 
+    let tool = plan
+        .tools
+        .iter()
+        .find(|tool| tool.name == tool_name);
+
     if tool_name == "custom_request" {
         let method = arguments
             .get("method")
@@ -976,29 +1241,144 @@ fn execute_tool_call(plan: &ToolPlan, params: Option<&Value>) -> Result<Value> {
         }));
     }
 
-    let tool = plan
-        .tools
-        .iter()
-        .find(|tool| tool.name == tool_name)
-        .context("tool not found")?;
+    if tool_name == "search_api" {
+        let tool = tool.context("tool not found")?;
+        let query = arguments
+            .get("query")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .context("search_api requires query")?;
+        let limit = arguments
+            .get("limit")
+            .and_then(Value::as_i64)
+            .unwrap_or(10)
+            .clamp(1, 25);
 
-    let operation = arguments
-        .get("operation")
-        .and_then(Value::as_str)
-        .map(ToString::to_string)
-        .or_else(|| tool.covered_endpoints.first().cloned())
-        .context("missing operation")?;
+        let matches = find_search_matches(plan, &tool.covered_endpoints, query);
+        return Ok(json!({
+            "content": [{
+                "type": "text",
+                "text": serde_json::to_string_pretty(&json!({
+                    "query": query,
+                    "total_matches": matches.len(),
+                    "matches": matches.into_iter().take(limit as usize).collect::<Vec<_>>(),
+                    "next_step": "Call execute_overflow_operation with one of the returned operation ids to execute it."
+                }))?
+            }]
+        }));
+    }
 
-    let endpoint = plan
-        .endpoint_catalog
-        .get(&operation)
-        .context("unknown operation")?;
+    let tool = tool.context("tool not found")?;
 
-    let result = execute_http_request(&endpoint.method, &endpoint.path, &arguments, Some(endpoint))?;
+    let operation = if tool.covered_endpoints.len() == 1 {
+        tool.covered_endpoints.first().cloned()
+    } else {
+        arguments
+            .get("operation")
+            .and_then(Value::as_str)
+            .map(ToString::to_string)
+    }
+    .with_context(|| format!("tool {tool_name} requires an explicit operation"))?;
+
+    let result = execute_operation(plan, &operation, &arguments)?;
 
     Ok(json!({
         "content": [{"type": "text", "text": serde_json::to_string_pretty(&result)?}]
     }))
+}
+
+fn execute_operation(
+    plan: &ToolPlan,
+    operation: &str,
+    arguments: &serde_json::Map<String, Value>,
+) -> Result<Value> {
+    let endpoint = plan
+        .endpoint_catalog
+        .get(operation)
+        .context("unknown operation")?;
+
+    execute_http_request(&endpoint.method, &endpoint.path, arguments, Some(endpoint))
+}
+
+fn find_search_matches(
+    plan: &ToolPlan,
+    operation_ids: &[String],
+    query: &str,
+) -> Vec<Value> {
+    let normalized_query = query.trim().to_lowercase();
+    let terms = tokenize_search_query(query);
+    let mut matches: Vec<(i64, String, Value)> = Vec::new();
+
+    for operation in operation_ids {
+        let Some(endpoint) = plan.endpoint_catalog.get(operation) else {
+            continue;
+        };
+
+        let mut fields = vec![
+            operation.to_lowercase(),
+            endpoint.method.to_lowercase(),
+            endpoint.path.to_lowercase(),
+            endpoint.summary.to_lowercase(),
+            endpoint.description.to_lowercase(),
+            endpoint.domain.to_lowercase(),
+        ];
+        fields.extend(endpoint.tags.iter().map(|tag| tag.to_lowercase()));
+
+        let mut score = 0_i64;
+        for field in fields {
+            if field.is_empty() {
+                continue;
+            }
+            if field.contains(&normalized_query) {
+                score += 5;
+            }
+            for term in &terms {
+                if field.contains(term) {
+                    score += 1;
+                }
+            }
+        }
+
+        if score > 0 {
+            matches.push((
+                score,
+                operation.clone(),
+                json!({
+                    "operation": operation,
+                    "method": endpoint.method.to_uppercase(),
+                    "path": endpoint.path,
+                    "summary": if endpoint.summary.is_empty() { endpoint.description.clone() } else { endpoint.summary.clone() },
+                    "domain": endpoint.domain,
+                    "score": score,
+                }),
+            ));
+        }
+    }
+
+    matches.sort_by(|left, right| {
+        right.0.cmp(&left.0).then_with(|| left.1.cmp(&right.1))
+    });
+
+    matches.into_iter().map(|(_, _, value)| value).collect()
+}
+
+fn tokenize_search_query(query: &str) -> Vec<String> {
+    let mut terms: Vec<String> = query
+        .to_lowercase()
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter_map(|part| {
+            let trimmed = part.trim();
+            if trimmed.len() >= 2 {
+                Some(trimmed.to_string())
+            } else {
+                None
+            }
+        })
+        .collect();
+    terms.sort();
+    terms.dedup();
+    terms
 }
 
 fn execute_http_request(
