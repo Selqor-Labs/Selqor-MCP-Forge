@@ -1,6 +1,6 @@
-// OWASP Agentic Top 10 (2024) → Selqor Forge security findings mapping.
+// OWASP Agentic Top 10 (2024) → Selqor MCP Forge security findings mapping.
 //
-// The Selqor Forge backend does not yet tag findings with OWASP categories,
+// The Selqor MCP Forge backend does not yet tag findings with OWASP categories,
 // so this module provides a **client-side heuristic** that inspects a
 // finding's `tags`, `title`, `description`, and `source` to place it in
 // one of the 10 categories. When the backend eventually ships a server-

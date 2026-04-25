@@ -15,7 +15,7 @@ body:
     id: proposal
     attributes:
       label: What would you like to see?
-      placeholder: I would like Selqor Forge to...
+      placeholder: I would like Selqor MCP Forge to...
     validations:
       required: true
   - type: textarea

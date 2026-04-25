@@ -92,7 +92,7 @@ export default function Topbar() {
                   whiteSpace: 'nowrap',
                 }}
               >
-                Selqor Forge
+                Selqor MCP Forge
               </Typography>
             </>
           )}

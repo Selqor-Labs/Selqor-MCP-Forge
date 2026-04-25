@@ -572,7 +572,7 @@ def anthropic_analysis_with_model(
             runtime.api_version if runtime and runtime.api_version else ANTHROPIC_VERSION
         ),
         "content-type": "application/json",
-        "user-agent": "selqor-forge/0.1.0",
+        "user-agent": "selqor-mcp-forge/0.1.0",
     }
     if runtime is not None:
         _apply_runtime_headers_dict(headers, runtime)
@@ -763,7 +763,7 @@ def openai_compatible_analysis(
 
     headers: dict[str, str] = {
         "content-type": "application/json",
-        "user-agent": "selqor-forge/0.1.0",
+        "user-agent": "selqor-mcp-forge/0.1.0",
     }
     _apply_runtime_auth_dict(headers, runtime, "Authorization", "Bearer")
 
@@ -967,7 +967,7 @@ def gemini_analysis(
 
     headers: dict[str, str] = {
         "content-type": "application/json",
-        "user-agent": "selqor-forge/0.1.0",
+        "user-agent": "selqor-mcp-forge/0.1.0",
     }
     if auth_type in ("api_key", ""):
         _apply_runtime_headers_dict(headers, runtime)

@@ -302,7 +302,7 @@ async def export_data(ctx: Ctx) -> Response:
         export = {
             "export_version": "1.0",
             "exported_at": datetime.utcnow().isoformat() + "Z",
-            "application": "selqor-forge",
+            "application": "selqor-mcp-forge",
             "data": {
                 "team": team_data,
                 "invites": invites_data,
@@ -321,7 +321,7 @@ async def export_data(ctx: Ctx) -> Response:
             content=content.encode("utf-8"),
             media_type="application/json",
             headers={
-                "Content-Disposition": f'attachment; filename="selqor-forge-export-{timestamp}.json"',
+                "Content-Disposition": f'attachment; filename="selqor-mcp-forge-export-{timestamp}.json"',
             },
         )
     finally:

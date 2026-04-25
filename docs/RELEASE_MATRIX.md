@@ -1,6 +1,6 @@
 # Public Release Matrix
 
-This matrix is the public-v1 truth table for Selqor Forge.
+This matrix is the public-v1 truth table for Selqor MCP Forge.
 
 | Surface | Status | Notes |
 | --- | --- | --- |
@@ -16,5 +16,5 @@ This matrix is the public-v1 truth table for Selqor Forge.
 | Dashboard LLM configs | Supported | Database-driven through the dashboard UI |
 | PostgreSQL / MinIO fresh installs | Supported | Fresh configuration works; no file-state seeding migration |
 | File-state to PostgreSQL seeding | Not in public v1 | Stub remains documented honestly |
-| Generated CI/CD templates | Supported | Install from pinned GitHub tarball, not PyPI |
-| PyPI install | Not in public v1 | Source checkout and Docker are the supported distribution paths |
+| Generated CI/CD templates | Supported | Install from PyPI or pinned GitHub tarball |
+| PyPI install | Supported | Wheel and source distributions available |

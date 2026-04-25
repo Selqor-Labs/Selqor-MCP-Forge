@@ -482,7 +482,7 @@ class DashboardContext:
     db_session_factory: Any | None = None  # SQLAlchemy sessionmaker for ORM operations
     minio: Any | None = None       # boto3 S3 client or None
     minio_bucket: str | None = None
-    minio_prefix: str = "selqor-forge"
+    minio_prefix: str = "selqor-mcp-forge"
     secret_manager: Any | None = None
     run_jobs: dict[str, RunJobState] = field(default_factory=dict)
     run_jobs_lock: threading.Lock = field(default_factory=threading.Lock)

@@ -1,4 +1,4 @@
-// Reusable form validation helpers for Selqor Forge.
+// Reusable form validation helpers for Selqor MCP Forge.
 //
 // Design goals:
 //   • Every validator returns either `null` (valid) or a structured error

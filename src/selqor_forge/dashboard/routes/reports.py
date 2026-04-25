@@ -45,7 +45,7 @@ def get_report(
 
     if fmt == "csv":
         csv_body = _build_csv_report(run)
-        filename = f"selqor-forge-{run.get('integration_id', '')}-{run.get('run_id', '')}-report.csv"
+        filename = f"selqor-mcp-forge-{run.get('integration_id', '')}-{run.get('run_id', '')}-report.csv"
         return Response(
             content=csv_body,
             status_code=200,
@@ -57,7 +57,7 @@ def get_report(
 
     if fmt == "pdf":
         pdf_bytes = _build_pdf_report(run)
-        filename = f"selqor-forge-{run.get('integration_id', '')}-{run.get('run_id', '')}-report.pdf"
+        filename = f"selqor-mcp-forge-{run.get('integration_id', '')}-{run.get('run_id', '')}-report.pdf"
         return Response(
             content=pdf_bytes,
             status_code=200,
@@ -165,7 +165,7 @@ def _build_csv_report(run: dict) -> str:
 
 def _build_pdf_report(run: dict) -> bytes:
     lines = [
-        "Selqor Forge Analysis Run Report",
+        "Selqor MCP Forge Analysis Run Report",
         f"Generated At (UTC): {now_utc_string()}",
         "",
         f"Integration: {run.get('integration_name', '')} ({run.get('integration_id', '')})",

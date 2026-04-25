@@ -2,7 +2,7 @@
 
 ## Our Standard
 
-We want Selqor Forge to be a respectful, inclusive, and constructive project.
+We want Selqor MCP Forge to be a respectful, inclusive, and constructive project.
 Contributors should assume good intent, give actionable feedback, and avoid
 harassment, discrimination, or personal attacks.
 

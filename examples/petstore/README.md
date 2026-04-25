@@ -1,6 +1,6 @@
 # Petstore Worked Example
 
-This example was generated from the repo's existing Petstore dashboard artifacts and then compared against Selqor Forge's built-in naive baseline.
+This example was generated from the repo's existing Petstore dashboard artifacts and then compared against Selqor MCP Forge's built-in naive baseline.
 
 ## Files
 

@@ -1,7 +1,7 @@
 # Copyright (c) Selqor Labs.
 # SPDX-License-Identifier: Apache-2.0
 
-"""SQLAlchemy ORM models for the Selqor Forge dashboard."""
+"""SQLAlchemy ORM models for the Selqor MCP Forge dashboard."""
 
 from __future__ import annotations
 

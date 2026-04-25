@@ -309,7 +309,7 @@ class StdioMCPClient(MCPClient):
                     "protocolVersion": "2024-11-05",
                     "capabilities": {},
                     "clientInfo": {
-                        "name": "selqor-forge-playground",
+                        "name": "selqor-mcp-forge-playground",
                         "version": "0.1.0",
                     },
                 },
@@ -601,7 +601,7 @@ class HttpSseMCPClient(MCPClient):
                     "protocolVersion": "2024-11-05",
                     "capabilities": {},
                     "clientInfo": {
-                        "name": "selqor-forge-playground",
+                        "name": "selqor-mcp-forge-playground",
                         "version": "0.1.0",
                     },
                 },

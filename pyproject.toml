@@ -99,7 +99,7 @@ exclude = [
     "docker-compose.yml",
     "Dockerfile",
     "alembic.ini",
-    "selqor-forge.config.example.json",
+    "selqor-mcp-forge.config.example.json",
 ]
 
 [tool.ruff]

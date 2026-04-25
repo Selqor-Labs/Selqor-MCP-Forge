@@ -46,7 +46,7 @@ export default function Layout({ children }) {
               <Typography variant="caption" color="text.secondary" fontWeight={600}>selqor</Typography>
             </Box>
             <Typography variant="caption" color="text.secondary">
-              &copy; {new Date().getFullYear()} Selqor Labs &middot; Selqor Forge is open sourced by Selqor Labs.
+              &copy; {new Date().getFullYear()} Selqor Labs &middot; Selqor MCP Forge is open sourced by Selqor Labs.
             </Typography>
           </Box>
         </Box>

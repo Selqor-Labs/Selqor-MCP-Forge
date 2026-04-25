@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a defect or regression in Selqor Forge
+description: Report a defect or regression in Selqor MCP Forge
 title: "[Bug]: "
 labels:
   - bug
@@ -37,7 +37,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Selqor Forge version
+      label: Selqor MCP Forge version
       placeholder: 0.1.0
   - type: textarea
     id: environment

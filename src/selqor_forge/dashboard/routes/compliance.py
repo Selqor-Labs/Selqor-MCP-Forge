@@ -97,7 +97,7 @@ async def get_badge(ctx: Ctx, scan_id: str) -> Response:
     status_text, color = _scan_to_badge(scan)
     score = scan.get("overall_score", 0)
 
-    svg = _generate_badge_svg("selqor-forge", f"{status_text} ({score})", color)
+    svg = _generate_badge_svg("selqor-mcp-forge", f"{status_text} ({score})", color)
 
     return Response(content=svg, media_type="image/svg+xml")
 
@@ -120,8 +120,8 @@ async def get_embed(ctx: Ctx, scan_id: str) -> dict:
         "status": status_text,
         "score": score,
         "badge_url": badge_url,
-        "markdown": f"![Selqor Forge Compliance]({badge_url})",
-        "html": f'<img src="{badge_url}" alt="Selqor Forge Compliance - {status_text} ({score})" />',
+        "markdown": f"![Selqor MCP Forge Compliance]({badge_url})",
+        "html": f'<img src="{badge_url}" alt="Selqor MCP Forge Compliance - {status_text} ({score})" />',
         "url": badge_url,
     }
 
@@ -154,7 +154,7 @@ async def generate_certificate(ctx: Ctx, scan_id: str) -> dict:
         "scan_completed_at": scan.get("completed_at"),
         "certificate_issued_at": now,
         "content_hash": content_hash,
-        "issuer": "Selqor Forge Security Scanner",
+        "issuer": "Selqor MCPForge Security Scanner",
     }
 
     return certificate

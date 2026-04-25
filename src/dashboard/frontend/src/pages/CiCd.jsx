@@ -53,7 +53,7 @@ const TARGET_OPTIONS = [
   {
     id: 'github_actions',
     label: 'GitHub Actions',
-    filename: '.github/workflows/selqor-forge-scan.yml',
+    filename: '.github/workflows/selqor-mcp-forge-scan.yml',
     description: 'Runs automatically on every push and pull request in GitHub',
   },
   {
@@ -417,7 +417,7 @@ export default function CiCd() {
                 Scanner Options
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Output formats are passed to <code>selqor-forge scan --format</code>.
+                Output formats are passed to <code>selqor-mcp-forge scan --format</code>.
               </Typography>
               <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mb: 1.5 }}>
                 {OUTPUT_FORMAT_OPTIONS.map((fmt) => (
@@ -702,7 +702,7 @@ export default function CiCd() {
           </Paper>
 
           <Alert severity="info" variant="outlined" sx={{ fontSize: '0.78rem' }}>
-            <strong>How it works:</strong> After your CI pipeline runs <code>selqor-forge scan</code>,
+            <strong>How it works:</strong> After your CI pipeline runs <code>selqor-mcp-forge scan</code>,
             add a step that POSTs the scan results JSON to <code>/api/cicd/webhooks/ingest</code>.
             Include the HMAC signature header for verification. Results appear in the CI Run History tab.
           </Alert>

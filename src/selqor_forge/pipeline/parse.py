@@ -188,7 +188,7 @@ def _load_spec_content(input_: str) -> str:
             )
 
         client = httpx.Client(
-            headers={"User-Agent": "selqor-forge/0.1.0"},
+            headers={"User-Agent": "selqor-mcp-forge/0.1.0"},
             follow_redirects=True,
             max_redirects=5,
         )

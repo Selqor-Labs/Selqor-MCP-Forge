@@ -1,7 +1,7 @@
 # Copyright (c) Selqor Labs.
 # SPDX-License-Identifier: Apache-2.0
 
-"""FastAPI application factory and server entry-point for the Selqor Forge dashboard."""
+"""FastAPI application factory and server entry-point for the Selqor MCP Forge dashboard."""
 
 from __future__ import annotations
 
@@ -119,7 +119,7 @@ def _init_minio() -> tuple[object | None, str | None, str]:
     access_key = _first_env("MINIO_ACCESS_KEY", "AWS_ACCESS_KEY_ID")
     secret_key = _first_env("MINIO_SECRET_KEY", "AWS_SECRET_ACCESS_KEY")
     region = _first_env("MINIO_REGION", "AWS_REGION") or "us-east-1"
-    prefix = _first_env("MINIO_PREFIX") or "selqor-forge"
+    prefix = _first_env("MINIO_PREFIX") or "selqor-mcp-forge"
 
     has_partial = any(v is not None for v in (endpoint, bucket, access_key, secret_key))
     if not has_partial:
@@ -368,7 +368,7 @@ def create_app(state_dir: Path, config: AppConfig, *, bind_host: str = "127.0.0.
     def _frontend_not_built_response() -> HTMLResponse:
         body = """
         <html>
-          <head><title>Selqor Forge Dashboard</title></head>
+          <head><title>Selqor MCP Forge Dashboard</title></head>
           <body style="font-family: sans-serif; max-width: 760px; margin: 3rem auto; line-height: 1.6;">
             <h1>Dashboard assets are not built</h1>
             <p>Build the frontend once from the repository root before starting the dashboard UI:</p>
@@ -469,7 +469,7 @@ npm run build</pre>
                     logger.debug("Error disposing database engine", exc_info=True)
 
     app = FastAPI(
-        title="Selqor Forge Dashboard",
+        title="Selqor MCP Forge Dashboard",
         version="0.1.0",
         lifespan=lifespan,
     )

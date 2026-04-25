@@ -111,7 +111,7 @@ def write_key(env_path: Path, key: str, existing_line: int | None) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Generate and persist FORGE_SECRET_KEY for the Selqor Forge dashboard.",
+        description="Generate and persist FORGE_SECRET_KEY for the Selqor MCP Forge dashboard.",
     )
     parser.add_argument(
         "--env-file",

@@ -40,7 +40,7 @@ def _connect_timeout_seconds() -> int:
 
 def _sqlite_url(state_dir: Path) -> str:
     state_dir.mkdir(parents=True, exist_ok=True)
-    sqlite_path = state_dir / "selqor-forge.db"
+    sqlite_path = state_dir / "selqor-mcp-forge.db"
     return f"sqlite:///{sqlite_path.as_posix()}"
 
 

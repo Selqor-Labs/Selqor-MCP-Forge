@@ -304,7 +304,7 @@ async def _probe_mcp_http_sse(server_url: str, timeout: float = 8.0) -> dict:
                     "params": {
                         "protocolVersion": "2024-11-05",
                         "capabilities": {},
-                        "clientInfo": {"name": "selqor-forge-monitor", "version": "1.0"},
+                        "clientInfo": {"name": "selqor-mcp-forge-monitor", "version": "1.0"},
                     },
                 },
                 headers={"Content-Type": "application/json"},

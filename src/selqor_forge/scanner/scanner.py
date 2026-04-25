@@ -1041,7 +1041,7 @@ class SecurityScanner:
             vulnerabilities=vulnerabilities,
             licenses=licenses,
             compliance_notes=[
-                "Scanned with selqor-forge-scanner",
+                "Scanned with selqor-mcp-forge-scanner",
                 f"Language: {manifest.language}",
                 f"Transport: {manifest.transport}",
             ],

@@ -20,7 +20,7 @@ def test_dashboard_serves_frontend_index(client):
     resp = client.get("/")
 
     assert resp.status_code == 200
-    assert "Selqor Forge" in resp.text
+    assert "Selqor MCP Forge" in resp.text
 
 
 @pytest.mark.skipif(not _frontend_built, reason="Frontend dist not built")

@@ -1,7 +1,7 @@
 # Copyright (c) Selqor Labs.
 # SPDX-License-Identifier: Apache-2.0
 
-"""CLI entry point for Selqor Forge."""
+"""CLI entry point for Selqor MCP Forge."""
 
 from __future__ import annotations
 
@@ -177,8 +177,8 @@ def _resolve_env_llm_config():
 @app.command()
 def generate(
     spec: Annotated[str, typer.Argument(help="OpenAPI spec path or URL")],
-    out: Annotated[Path, typer.Option(help="Output directory")] = Path("./selqor-forge-output"),
-    config: Annotated[Optional[Path], typer.Option(help="Optional selqor forge config JSON file")] = None,
+    out: Annotated[Path, typer.Option(help="Output directory")] = Path("./selqor-mcp-forge-output"),
+    config: Annotated[Optional[Path], typer.Option(help="Optional selqor-mcp-forge config JSON file")] = None,
     target: Annotated[TargetArg, typer.Option(help="Generation target")] = TargetArg.BOTH,
     transport: Annotated[Optional[TransportMode], typer.Option(help="Default generated transport mode")] = None,
     no_llm: Annotated[bool, typer.Option("--no-llm", help="Disable Anthropic analysis and use heuristic curation only")] = False,
@@ -225,7 +225,7 @@ def generate(
     summary = gen.generate(out, uasf, analysis, plan, quality, app_config)
 
     logger.info(
-        "Selqor Forge generation complete: output=%s api=%s version=%s endpoints=%d source=%s tools=%d score=%d targets=%s",
+        "Selqor MCP Forge generation complete: output=%s api=%s version=%s endpoints=%d source=%s tools=%d score=%d targets=%s",
         summary.root,
         uasf.title,
         uasf.version,
@@ -244,7 +244,7 @@ def generate(
 def benchmark(
     manifest: Annotated[Path, typer.Option(help="Benchmark manifest JSON file")] = Path("./benchmarks/apis.json"),
     out: Annotated[Path, typer.Option(help="Benchmark output directory")] = Path("./benchmarks/results"),
-    config: Annotated[Optional[Path], typer.Option(help="Optional selqor forge config JSON file")] = None,
+    config: Annotated[Optional[Path], typer.Option(help="Optional selqor-mcp-forge config JSON file")] = None,
     target: Annotated[TargetArg, typer.Option(help="Generation target used when --generate-servers is enabled")] = TargetArg.BOTH,
     transport: Annotated[Optional[TransportMode], typer.Option(help="Default generated transport mode")] = None,
     no_llm: Annotated[bool, typer.Option("--no-llm", help="Disable Anthropic analysis and use heuristic curation only")] = False,
@@ -303,7 +303,7 @@ def dashboard(
     state: Annotated[Path, typer.Option(help="Dashboard state directory")] = Path("./dashboard"),
     host: Annotated[str, typer.Option(help="Dashboard host to bind")] = "127.0.0.1",
     port: Annotated[int, typer.Option(help="Dashboard port to bind")] = 8787,
-    config: Annotated[Optional[Path], typer.Option(help="Optional selqor forge config JSON file")] = None,
+    config: Annotated[Optional[Path], typer.Option(help="Optional selqor-mcp-forge config JSON file")] = None,
     no_llm: Annotated[bool, typer.Option("--no-llm", help="Disable Anthropic analysis and use heuristic curation only")] = False,
     i_know_what_im_doing: Annotated[
         bool,
@@ -313,7 +313,7 @@ def dashboard(
         ),
     ] = False,
 ) -> None:
-    """Start the Selqor Forge dashboard web server."""
+    """Start the Selqor MCP Forge dashboard web server."""
     init_logging()
     _load_env_file()
 
@@ -336,7 +336,7 @@ def dashboard(
 
 def version_callback(value: bool) -> None:
     if value:
-        print(f"selqor-forge {__version__}")
+        print(f"selqor-mcp-forge {__version__}")
         raise typer.Exit()
 
 

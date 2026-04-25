@@ -21,8 +21,8 @@ def test_generate_github_actions(client, monkeypatch):
     body = resp.json()
     assert "github_actions" in body["files"]
     content = body["files"]["github_actions"]["content"]
-    assert "Selqor Forge Security Scan" in content
-    assert "selqor-forge" in content
+    assert "Selqor MCP Forge Security Scan" in content
+    assert "selqor-mcp-forge" in content
     assert "threshold" in content.lower()
     assert "archive/abc123.tar.gz" in content
     assert "refs/tags" not in content
@@ -45,7 +45,7 @@ def test_generate_pre_commit(client, monkeypatch):
     assert resp.status_code == 200
     content = resp.json()["files"]["pre_commit"]["content"]
     assert "pre-commit-config.yaml" in resp.json()["files"]["pre_commit"]["filename"]
-    assert "selqor-forge" in content
+    assert "selqor-mcp-forge" in content
 
 
 def test_generate_invalid_targets_falls_back_to_default(client, monkeypatch):

@@ -1,7 +1,7 @@
 # Copyright (c) Selqor Labs.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Core data models for the Selqor Forge pipeline."""
+"""Core data models for the Selqor MCP Forge pipeline."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 // Feature 4 — Baseline vs curated tooling comparison.
 //
-// The "value prop" of Selqor Forge is *curation*: we take an API spec
+// The "value prop" of Selqor MCP Forge is *curation*: we take an API spec
 // with hundreds of endpoints and produce a small set of well-shaped MCP
 // tools. But without a side-by-side view the user has no way to see
 // what curation actually bought them. This component renders a two-

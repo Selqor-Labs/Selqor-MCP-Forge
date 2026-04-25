@@ -1,7 +1,7 @@
-# Selqor Forge
+# Selqor MCP Forge
 
 <p align="center">
-  <img src="selqorLogos/selqor-labs-dark.svg" alt="Selqor Forge" width="320">
+  <img src="selqorLogos/selqor-labs-dark.svg" alt="Selqor MCP Forge" width="320">
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
   <a href="#more-documentation">Docs</a>
 </p>
 
-Selqor Forge turns your application's API specs into smaller, higher-signal MCP servers with smart and intelligently curated tools, then gives you a dashboard to manage integrations, auth, LLM configs, run history, and deployment prep.
+Selqor MCP Forge turns your application's API specs into smaller, higher-signal MCP servers with smart and intelligently curated tools, then gives you a dashboard to manage integrations, auth, LLM configs, run history, and deployment prep.
 
 ## At a Glance
 
@@ -43,7 +43,7 @@ Selqor Forge turns your application's API specs into smaller, higher-signal MCP 
 
 ## Why It Feels Different
 
-| Raw API -> MCP | Selqor Forge |
+| Raw API -> MCP | Selqor MCP Forge |
 | --- | --- |
 | One endpoint becomes one tool | Endpoints are grouped into higher-signal tools |
 | Tool count balloons quickly | Tool plans stay compressed and reviewable |
@@ -99,7 +99,7 @@ pip install -e .[dev]
 - The dashboard is intentionally local-only in this public build.
 - Shared-user auth, organization management, and team invites are disabled and return explicit `501 LOCAL_ONLY_BUILD` responses.
 - PostgreSQL-backed fresh installs are supported, but file-state-to-Postgres seeding is still not implemented.
-- Generated CI/CD templates can install Selqor Forge from PyPI or a pinned GitHub commit tarball.
+- Generated CI/CD templates can install Selqor MCP Forge from PyPI or a pinned GitHub commit tarball.
 
 ## Golden Path Demo
 
@@ -121,7 +121,7 @@ Raw tool catalogs get expensive and noisy fast:
 - AgentPMT measured a **74-tool MCP setup consuming 46,568 tokens** before the first user message. [Source](https://www.agentpmt.com/articles/mcp-servers-waste-96-of-agent-context-on-tool-definitions)
 - OpenAI's function-calling guidance says to **aim for fewer than 20 functions at one time for higher accuracy**. [Source](https://platform.openai.com/docs/guides/function-calling/how-do-i-ensure-the-model-calls-the-correct-function)
 
-Selqor Forge sits in that gap: parse the full API surface, preserve coverage, and curate it into a tool plan that an agent can actually use.
+Selqor MCP Forge sits in that gap: parse the full API surface, preserve coverage, and curate it into a tool plan that an agent can actually use.
 
 ## What You Ship
 
@@ -362,13 +362,13 @@ The repo includes a checked-in Petstore example with both the curated outputs an
 ## Security And Deployment Notes
 
 - Dashboard secrets are encrypted at rest with Fernet.
-- If `FORGE_SECRET_KEY` is missing, Selqor Forge generates a local key in the dashboard state directory on first run and prints a startup warning.
+- If `FORGE_SECRET_KEY` is missing, Selqor MCP Forge generates a local key in the dashboard state directory on first run and prints a startup warning.
 - The dashboard prints a safety banner when it is still in local-dev posture, including wildcard CORS, placeholder auth, or non-loopback binding.
 - Binding the CLI to a non-loopback host now requires `--i-know-what-im-doing`.
 
 ## Authentication Status
 
-Selqor Forge does **not** ship with a production shared-user auth system in this public build. The dashboard is intentionally positioned as a local-only single-user tool, and shared auth/org/team routes return explicit local-only disabled responses.
+Selqor MCP Forge does **not** ship with a production shared-user auth system in this public build. The dashboard is intentionally positioned as a local-only single-user tool, and shared auth/org/team routes return explicit local-only disabled responses.
 
 Use [docs/AUTH_MODULE_INTEGRATION.md](docs/AUTH_MODULE_INTEGRATION.md) before exposing the dashboard to any shared or untrusted network.
 
@@ -615,7 +615,7 @@ For production deployments:
 
 ### Security Checklist for Production
 
-Before exposing Selqor Forge to a shared network:
+Before exposing Selqor MCP Forge to a shared network:
 
 - [ ] Implement real authentication (don't use placeholder)
 - [ ] Enable TLS/HTTPS (use Let's Encrypt + reverse proxy)
@@ -797,7 +797,7 @@ Then compare your outputs to `examples/petstore/` to see what the tool does.
 
 ### AI-Powered OWASP Analysis
 
-Selqor Forge uses LLM-powered analysis to evaluate generated MCP tools against the OWASP Agentic Top 10:
+Selqor MCP Forge uses LLM-powered analysis to evaluate generated MCP tools against the OWASP Agentic Top 10:
 
 - **A01: Unsafe Tool Definition** — Detects overly permissive tool descriptions
 - **A02: Unsafe Tool Chaining** — Identifies risky tool combinations
@@ -922,7 +922,7 @@ curl http://localhost:8787/api/cicd/badge/my-project  # Get compliance badge
 
 ## License
 
-Selqor Forge is licensed under [Apache-2.0](LICENSE).
+Selqor MCP Forge is licensed under [Apache-2.0](LICENSE).
 
-If you build on Selqor Forge, attribution such as `Powered by Selqor Labs` is
+If you build on Selqor MCP Forge, attribution such as `Powered by Selqor Labs` is
 appreciated but not required.

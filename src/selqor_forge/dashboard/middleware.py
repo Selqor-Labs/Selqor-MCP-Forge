@@ -17,7 +17,7 @@ from fastapi import Depends, Header, HTTPException, Request
 from selqor_forge.dashboard.context import CurrentUser, DashboardContext
 
 _LOCAL_ONLY_MESSAGE = (
-    "This public Selqor Forge build is a local-only single-user dashboard. "
+    "This public Selqor MCP Forge build is a local-only single-user dashboard."
     "Shared auth, organization, and team-management features are not included."
 )
 

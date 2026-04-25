@@ -4,7 +4,7 @@
 """CI/CD integration routes for generating pipeline configs.
 
 The generator emits *correct* shell commands that match the real
-``selqor-forge scan`` CLI signature (see ``selqor_forge/cli.py``).
+``selqor-mcp-forge scan`` CLI signature (see ``selqor_forge/cli.py``).
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ class CICDConfigBody(BaseModel):
 
     The legacy ``formats`` field used to mean two contradictory things at once
     — both "which CI files to make" and "which ``--format`` arguments to pass
-    to ``selqor-forge scan``". They are now split into ``targets`` (CI files)
+    to ``selqor-mcp-forge scan``". They are now split into ``targets`` (CI files)
     and ``output_formats`` (scan output formats).
     """
 
@@ -55,7 +55,7 @@ class CICDConfigBody(BaseModel):
     # CI targets — which provider files to generate
     targets: list[str] = Field(default_factory=lambda: ["github_actions"])
 
-    # Scan output formats — passed to ``selqor-forge scan --format``
+    # Scan output formats — passed to ``selqor-mcp-forge scan --format``
     output_formats: list[str] = Field(default_factory=lambda: ["json"])
 
     # Behaviour flags
@@ -114,13 +114,13 @@ class CICDConfigBody(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Helpers — build the actual `selqor-forge scan` command
+# Helpers — build the actual `selqor-mcp-forge scan` command
 # ---------------------------------------------------------------------------
 
 
 def _scan_command(body: CICDConfigBody) -> str:
     """Return the shell command that runs the scan, matching the real CLI."""
-    parts = ["selqor-forge", "scan", shlex.quote(body.source_path)]
+    parts = ["selqor-mcp-forge", "scan", shlex.quote(body.source_path)]
     parts.append(f"--out {shlex.quote(body.output_dir)}")
     parts.append(f"--format {','.join(body.output_formats)}")
     if body.use_semgrep:
@@ -155,14 +155,14 @@ def _resolve_install_tarball_url() -> str:
             )
         except (FileNotFoundError, subprocess.SubprocessError, OSError) as exc:
             raise RuntimeError(
-                "Unable to resolve a pinned Selqor Forge commit SHA. Set "
+                "Unable to resolve a pinned Selqor MCP Forge commit SHA. Set"
                 "SELQOR_FORGE_GIT_SHA before generating CI/CD templates."
             ) from exc
         sha = result.stdout.strip()
 
     if not sha:
         raise RuntimeError(
-            "Unable to resolve a pinned Selqor Forge commit SHA. Set "
+            "Unable to resolve a pinned Selqor MCP Forge commit SHA. Set"
             "SELQOR_FORGE_GIT_SHA before generating CI/CD templates."
         )
 
@@ -184,7 +184,7 @@ def _generate_github_actions(body: CICDConfigBody) -> str:
     branches_yaml = ", ".join(f'"{b}"' for b in branches)
 
     lines: list[str] = [
-        "name: Selqor Forge Security Scan",
+        "name: Selqor MCP Forge Security Scan",
         "",
         "on:",
         "  push:",
@@ -209,7 +209,7 @@ def _generate_github_actions(body: CICDConfigBody) -> str:
         '          python-version: "3.11"',
         "          cache: pip",
         "",
-        "      - name: Install Selqor Forge from pinned GitHub tarball",
+        "      - name: Install Selqor MCP Forge from PyPI",
         f"        run: {_install_command()}",
         "",
         "      - name: Run security scan",
@@ -228,7 +228,7 @@ def _generate_github_actions(body: CICDConfigBody) -> str:
         "        if: always()",
         "        uses: actions/upload-artifact@v4",
         "        with:",
-        "          name: selqor-forge-scan",
+        "          name: selqor-mcp-forge-scan",
         f"          path: {body.output_dir}/",
         "          retention-days: 30",
     ]
@@ -279,7 +279,7 @@ def _generate_gitlab_ci(body: CICDConfigBody) -> str:
         "stages:",
         "  - security",
         "",
-        "selqor-forge-scan:",
+        "selqor-mcp-forge-scan:",
         "  stage: security",
         "  image: python:3.11-slim",
         "  cache:",
@@ -336,10 +336,10 @@ def _generate_pre_commit(body: CICDConfigBody) -> str:
     The previous implementation wrote a raw shell script directly into
     ``.git/hooks/pre-commit``. That path is gitignored, has to be re-installed
     by every contributor, and the script tried to scan individual files which
-    selqor-forge does not support. The pre-commit framework is the modern,
+    selqor-mcp-forge does not support. The pre-commit framework is the modern,
     version-controlled answer.
     """
-    cmd_parts = ["selqor-forge", "scan", body.source_path]
+    cmd_parts = ["selqor-mcp-forge", "scan", body.source_path]
     cmd_parts.append("--out")
     cmd_parts.append(body.output_dir)
     cmd_parts.append("--format")
@@ -352,22 +352,22 @@ def _generate_pre_commit(body: CICDConfigBody) -> str:
     args_yaml = "\n".join(f"          - {json.dumps(p)}" for p in cmd_parts[2:])
 
     lines = [
-        "# .pre-commit-config.yaml — managed by Selqor Forge",
+        "# .pre-commit-config.yaml — managed by Selqor MCP Forge",
         "#",
         "# Install once per clone:",
         "#   pip install pre-commit",
         "#   pre-commit install",
         "#",
-        "# The hook scans the whole project (selqor-forge does not operate on",
+        "# The hook scans the whole project (selqor-mcp-forge does not operate on",
         "# individual files). pass_filenames is intentionally false.",
         "",
         "repos:",
         "  - repo: local",
         "    hooks:",
-        "      - id: selqor-forge-scan",
-        "        name: Selqor Forge Security Scan",
+        "      - id: selqor-mcp-forge-scan",
+        "        name: Selqor MCP Forge Security Scan",
         "        language: system",
-        "        entry: selqor-forge",
+        "        entry: selqor-mcp-forge",
         "        args:",
         args_yaml,
         "        pass_filenames: false",
@@ -384,7 +384,7 @@ def _generate_pre_commit(body: CICDConfigBody) -> str:
 
 # Filename each target writes to (used by the frontend for download).
 TARGET_FILENAMES = {
-    "github_actions": ".github/workflows/selqor-forge-scan.yml",
+    "github_actions": ".github/workflows/selqor-mcp-forge-scan.yml",
     "gitlab_ci": ".gitlab-ci.yml",
     "pre_commit": ".pre-commit-config.yaml",
 }

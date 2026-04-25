@@ -244,7 +244,7 @@ async def test_channel(ctx: Ctx, channel_id: str) -> dict:
             session,
             channel,
             event_type="test",
-            subject="Test notification from Selqor Forge",
+            subject="Test notification from Selqor MCP Forge",
             body="If you received this, the channel is working correctly.",
         )
         return result

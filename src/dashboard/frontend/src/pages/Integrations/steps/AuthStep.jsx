@@ -231,7 +231,7 @@ export default function AuthStep({ integration, onReload }) {
   return (
     <Box>
       <Typography variant="h6" sx={{ mb: 0.5 }}>Authentication Configuration</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Configure how Selqor Forge authenticates with your API when testing connections and deploying servers.</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>Configure how Selqor MCP Forge authenticates with your API when testing connections and deploying servers.</Typography>
       <Stack spacing={2} sx={{ maxWidth: 520 }}>
         {!specIsHttp && !form.base_url && (
           <Alert severity="info" variant="outlined">
@@ -239,7 +239,7 @@ export default function AuthStep({ integration, onReload }) {
               Enter your API&apos;s base URL
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              This integration was created from an uploaded spec file, so Selqor Forge
+              This integration was created from an uploaded spec file, so Selqor MCP Forge
               can&apos;t auto-detect the API&apos;s host. Enter the root URL where this
               API is actually served (e.g. <code>https://api.digitalocean.com</code>) so
               connectivity tests and deployed servers know where to send requests.

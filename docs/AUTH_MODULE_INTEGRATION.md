@@ -1,6 +1,6 @@
 # Dashboard Authentication Integration
 
-Selqor Forge public v1 ships the dashboard as a **local-only single-user tool**.
+Selqor MCP Forge public v1 ships the dashboard as a **local-only single-user tool**.
 It does not include shared-user authentication, organizations, or team
 management out of the box.
 
@@ -13,7 +13,7 @@ management out of the box.
 
 ## When You Need This Document
 
-Use this guide only if you are adapting Selqor Forge for a shared or untrusted
+Use this guide only if you are adapting Selqor MCP Forge for a shared or untrusted
 network. If you are running the public build on your own machine, you do not
 need to integrate auth.
 
