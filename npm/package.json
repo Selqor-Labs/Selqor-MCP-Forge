@@ -1,6 +1,6 @@
 {
   "name": "selqor-mcp-forge",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Turn noisy API surfaces into curated MCP servers agents can actually use. Node wrapper around the Python CLI.",
   "keywords": [
     "mcp",
