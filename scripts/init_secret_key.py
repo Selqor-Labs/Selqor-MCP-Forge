@@ -170,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         "Next steps:\n"
         "  1. Back up this .env file (or at minimum the FORGE_SECRET_KEY line) alongside your database.\n"
         "  2. In production, set FORGE_SECRET_KEY via your secret manager instead of committing .env.\n"
-        "  3. Restart the dashboard: selqor-forge dashboard --state ./dashboard",
+        "  3. Restart the dashboard: selqor-mcp-forge dashboard --state ./dashboard",
     )
     return 0
 

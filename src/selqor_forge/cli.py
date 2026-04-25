@@ -21,7 +21,7 @@ from selqor_forge.logging_setup import init as init_logging
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
-    name="selqor-forge",
+    name="selqor-mcp-forge",
     help="Generate curated MCP servers from OpenAPI specs",
     add_completion=False,
 )
@@ -352,9 +352,9 @@ def scan(
     """Scan MCP server for security vulnerabilities and compliance issues.
 
     Supports:
-    - Local directories: selqor-forge scan ./my-server
-    - GitHub URLs: selqor-forge scan https://github.com/owner/repo
-    - Running servers: selqor-forge scan http://localhost:3000
+    - Local directories: selqor-mcp-forge scan ./my-server
+    - GitHub URLs: selqor-mcp-forge scan https://github.com/owner/repo
+    - Running servers: selqor-mcp-forge scan http://localhost:3000
     """
     import asyncio
     from pathlib import Path

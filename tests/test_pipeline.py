@@ -383,3 +383,58 @@ def test_config_with_transport():
 def test_config_with_anthropic_disabled():
     cfg = AppConfig().with_anthropic_enabled(False)
     assert cfg.anthropic.enabled is False
+
+
+# ---------------------------------------------------------------------------
+# SSRF host-block behaviour
+# ---------------------------------------------------------------------------
+
+
+def test_blocked_host_rejects_private_ipv4(monkeypatch):
+    def fake_getaddrinfo(host, *_):
+        return [(2, 1, 6, "", ("192.168.1.5", 0))]
+
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
+    assert parse._is_blocked_host("http://internal.example/spec.json") is True
+
+
+def test_blocked_host_rejects_loopback_ipv6(monkeypatch):
+    def fake_getaddrinfo(host, *_):
+        return [(23, 1, 6, "", ("::1", 0, 0, 0))]
+
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
+    assert parse._is_blocked_host("http://localhost/spec.json") is True
+
+
+def test_blocked_host_allows_nat64_alongside_public_ipv4(monkeypatch):
+    # Resolver returns a NAT64 (64:ff9b::/96) entry first and the real public
+    # IPv4 entry second. The NAT64 entry is `is_reserved` in Python's ipaddress
+    # module but legitimately routes to the same public IPv4 service, so it
+    # must not block the request. Regression for public specs like
+    # https://petstore.swagger.io/v2/swagger.json on NAT64-enabled networks.
+    def fake_getaddrinfo(host, *_):
+        return [
+            (23, 1, 6, "", ("64:ff9b::22e0:91e7", 0, 0, 0)),
+            (2, 1, 6, "", ("34.225.45.119", 0)),
+        ]
+
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
+    assert parse._is_blocked_host("https://petstore.swagger.io/v2/swagger.json") is False
+
+
+def test_blocked_host_strips_ipv6_zone_id(monkeypatch):
+    def fake_getaddrinfo(host, *_):
+        return [(23, 1, 6, "", ("fe80::1%eth0", 0, 0, 0))]
+
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
+    assert parse._is_blocked_host("http://host.example/spec.json") is True
+
+
+def test_blocked_host_returns_false_on_resolve_failure(monkeypatch):
+    import socket as _socket
+
+    def fake_getaddrinfo(host, *_):
+        raise _socket.gaierror("unresolved")
+
+    monkeypatch.setattr("socket.getaddrinfo", fake_getaddrinfo)
+    assert parse._is_blocked_host("http://does-not-exist.invalid/spec.json") is False

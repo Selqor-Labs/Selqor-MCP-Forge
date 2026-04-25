@@ -6,7 +6,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "selqor-forge"
+name = "selqor-mcp-forge"
 version = "0.1.0"
 description = "Any App -> Curated MCP servers"
 readme = "README.md"
@@ -64,10 +64,43 @@ dev = [
 ]
 
 [project.scripts]
-selqor-forge = "selqor_forge.cli:app"
+selqor-mcp-forge = "selqor_forge.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/selqor_forge"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/selqor_forge",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "SUPPORT.md",
+    "pyproject.toml",
+]
+exclude = [
+    "tests",
+    "benchmarks",
+    "examples",
+    "docs",
+    "e2e",
+    "scripts",
+    "tools",
+    "selqorLogos",
+    "src/dashboard",
+    ".tmp-*",
+    "*.db",
+    "*.sqlite*",
+    "dashboard",
+    "migrations",
+    "docker-compose.yml",
+    "Dockerfile",
+    "alembic.ini",
+    "selqor-forge.config.example.json",
+]
 
 [tool.ruff]
 line-length = 120

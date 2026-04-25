@@ -57,26 +57,57 @@ Selqor Forge turns your application's API specs into smaller, higher-signal MCP 
 2. **Analyze and curate** the endpoint graph into a tool plan with coverage, compression, and overflow handling.
 3. **Generate and review** hardened MCP targets in TypeScript or Rust, then validate them through the local dashboard and scanner.
 
+## Installation
+
+### From npm (Node-first)
+
+```bash
+npm install -g selqor-mcp-forge
+pipx install selqor-mcp-forge    # or: pip install selqor-mcp-forge
+```
+
+Both are required: the npm package provides the `selqor-mcp-forge` CLI shim, and the Python package provides the analysis engine.
+
+### From PyPI (Python-first)
+
+```bash
+pip install selqor-mcp-forge
+```
+
+Or with development dependencies:
+
+```bash
+pip install 'selqor-mcp-forge[dev]'
+```
+
+### From Source (Development)
+
+```bash
+git clone https://github.com/Selqor-Labs/Selqor-MCP-Forge.git
+cd Selqor-MCP-Forge
+pip install -e .[dev]
+```
+
 ## Public v1 Support Matrix
 
-- Supported: GitHub source checkout, Docker demo stack, local single-user dashboard, TypeScript targets, Rust `stdio`, CLI generation, CLI scanning
+- Supported: GitHub source checkout, Docker demo stack, local single-user dashboard, TypeScript targets, Rust `stdio`, CLI generation, CLI scanning, PyPI distribution, npm wrapper
 - Experimental: Rust HTTP transport
-- Not in public v1: shared dashboard auth, organizations, team management, PyPI install
+- Not in public v1: shared dashboard auth, organizations, team management
 
 ## Known Limitations
 
 - The dashboard is intentionally local-only in this public build.
 - Shared-user auth, organization management, and team invites are disabled and return explicit `501 LOCAL_ONLY_BUILD` responses.
 - PostgreSQL-backed fresh installs are supported, but file-state-to-Postgres seeding is still not implemented.
-- Generated CI/CD templates install Selqor Forge from a pinned GitHub commit tarball, not from PyPI.
+- Generated CI/CD templates can install Selqor Forge from PyPI or a pinned GitHub commit tarball.
 
 ## Golden Path Demo
 
 **Fastest path to value**
 
-1. Clone the repo and run `pip install -e .[dev]`
+1. Install from PyPI: `pip install selqor-mcp-forge[dev]` (or use npm, see above)
 2. Build the frontend with `cd src/dashboard/frontend && npm ci && npm run build`
-3. Start the dashboard with `selqor-forge dashboard --state ./dashboard`
+3. Start the dashboard with `selqor-mcp-forge dashboard --state ./dashboard`
 4. Create an integration from `https://petstore.swagger.io/v2/swagger.json`
 5. Run analysis, inspect the tool plan, then generate a TypeScript target
 
@@ -110,11 +141,26 @@ If you just want to see the product working, do this:
 - **Node.js 20+** — Download from [nodejs.org](https://nodejs.org/)
 - **Git** — For cloning and version control
 
-### Step 1: Clone and Install
+### Step 1: Install
+
+From PyPI (recommended):
+
+```bash
+pip install selqor-mcp-forge[dev]
+```
+
+Or from npm:
+
+```bash
+npm install -g selqor-mcp-forge
+pipx install selqor-mcp-forge
+```
+
+Or from source:
 
 ```bash
 git clone https://github.com/Selqor-Labs/Selqor-MCP-Forge.git
-cd selqor-forge
+cd Selqor-MCP-Forge
 pip install -e .[dev]
 ```
 
@@ -139,7 +185,7 @@ cd ../../..      # Back to project root
 ### Step 3: Launch the Dashboard
 
 ```bash
-selqor-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
+selqor-mcp-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
 ```
 
 ### Step 4: Open in Your Browser
@@ -333,7 +379,7 @@ Use [docs/AUTH_MODULE_INTEGRATION.md](docs/AUTH_MODULE_INTEGRATION.md) before ex
 ### Dashboard (Interactive Web UI)
 
 ```bash
-selqor-forge dashboard [--state <DIR>] [--host <HOST>] [--port <PORT>]
+selqor-mcp-forge dashboard [--state <DIR>] [--host <HOST>] [--port <PORT>]
 ```
 
 **Options:**
@@ -345,14 +391,14 @@ selqor-forge dashboard [--state <DIR>] [--host <HOST>] [--port <PORT>]
 **Example:**
 
 ```bash
-selqor-forge dashboard --state /tmp/forge-state --port 9000
+selqor-mcp-forge dashboard --state /tmp/forge-state --port 9000
 # Then open http://127.0.0.1:9000
 ```
 
 ### Generate (Single Spec Analysis)
 
 ```bash
-selqor-forge generate <SPEC> [--out <DIR>] [--config <FILE>] [--target <ts|rust|both>] [--transport <stdio|http>]
+selqor-mcp-forge generate <SPEC> [--out <DIR>] [--config <FILE>] [--target <ts|rust|both>] [--transport <stdio|http>]
 ```
 
 **Options:**
@@ -366,7 +412,7 @@ selqor-forge generate <SPEC> [--out <DIR>] [--config <FILE>] [--target <ts|rust|
 **Example:**
 
 ```bash
-selqor-forge generate https://petstore.swagger.io/v2/swagger.json --out ./petstore-output --target ts
+selqor-mcp-forge generate https://petstore.swagger.io/v2/swagger.json --out ./petstore-output --target ts
 ```
 
 **Outputs:**
@@ -379,7 +425,7 @@ selqor-forge generate https://petstore.swagger.io/v2/swagger.json --out ./petsto
 ### Benchmark (Compare Curated vs. Baseline)
 
 ```bash
-selqor-forge benchmark --manifest <FILE> [--out <DIR>] [--generate-servers] [--fail-fast]
+selqor-mcp-forge benchmark --manifest <FILE> [--out <DIR>] [--generate-servers] [--fail-fast]
 ```
 
 **Options:**
@@ -411,7 +457,7 @@ selqor-forge benchmark --manifest <FILE> [--out <DIR>] [--generate-servers] [--f
 **Example:**
 
 ```bash
-selqor-forge benchmark --manifest ./benchmarks/apis.json --out ./benchmark-results
+selqor-mcp-forge benchmark --manifest ./benchmarks/apis.json --out ./benchmark-results
 ```
 
 **Outputs:**
@@ -453,7 +499,7 @@ MINIO_BUCKET=
 MINIO_ACCESS_KEY=
 MINIO_SECRET_KEY=
 MINIO_REGION=us-east-1
-MINIO_PREFIX=selqor-forge
+MINIO_PREFIX=selqor-mcp-forge
 
 # CLI and CI can use environment-driven LLM settings directly.
 # The dashboard scanner uses Dashboard -> LLM Config instead.
@@ -499,8 +545,8 @@ For advanced customization, create a `forge.json`:
 Pass it to commands:
 
 ```bash
-selqor-forge generate ./spec.json --config ./forge.json
-selqor-forge dashboard --config ./forge.json
+selqor-mcp-forge generate ./spec.json --config ./forge.json
+selqor-mcp-forge dashboard --config ./forge.json
 ```
 
 ---
@@ -529,7 +575,7 @@ This starts:
 ```bash
 pip install -e .[dev]
 cd src/dashboard/frontend && npm ci && npm run build && cd ../../..
-selqor-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
+selqor-mcp-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
 ```
 
 **Characteristics:**
@@ -542,11 +588,11 @@ selqor-forge dashboard --state ./dashboard --host 127.0.0.1 --port 8787
 ### Docker Container (Single-Machine)
 
 ```bash
-docker build -t selqor-forge:latest .
+docker build -t selqor-mcp-forge:latest .
 docker run -p 8787:8787 \
   -v /data/forge-state:/home/selqor/dashboard \
   -e ANTHROPIC_API_KEY=sk-ant-... \
-  selqor-forge:latest
+  selqor-mcp-forge:latest
 ```
 
 **Characteristics:**
@@ -616,7 +662,7 @@ npm ci --legacy-peer-deps
 
 ```bash
 # Use a different port:
-selqor-forge dashboard --port 9000
+selqor-mcp-forge dashboard --port 9000
 
 # OR kill the existing process:
 # macOS/Linux:
@@ -634,7 +680,7 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." >> .env
 
 # OR set it temporarily:
 export ANTHROPIC_API_KEY=sk-ant-...
-selqor-forge dashboard
+selqor-mcp-forge dashboard
 ```
 
 ### Analysis Hangs or Fails
@@ -644,7 +690,7 @@ selqor-forge dashboard
 ```bash
 # This is normal for 200+ endpoint specs
 # You can interrupt (Ctrl+C) and retry with simpler configs:
-selqor-forge generate ./spec.json --no-llm  # Skip LLM analysis
+selqor-mcp-forge generate ./spec.json --no-llm  # Skip LLM analysis
 ```
 
 **Error:** `Connection refused` when fetching remote specs
@@ -667,7 +713,7 @@ echo $FORGE_SECRET_KEY  # Should not be empty
 
 # Regenerate the key:
 rm dashboard/secrets.key  # Deletes the local key
-selqor-forge dashboard    # Generates a new one
+selqor-mcp-forge dashboard    # Generates a new one
 ```
 
 ### Tests Fail
@@ -703,7 +749,7 @@ The repo includes a complete Petstore example:
 **Try it yourself:**
 
 ```bash
-selqor-forge generate https://petstore.swagger.io/v2/swagger.json --out ./my-petstore
+selqor-mcp-forge generate https://petstore.swagger.io/v2/swagger.json --out ./my-petstore
 ```
 
 Then compare your outputs to `examples/petstore/` to see what the tool does.
@@ -713,18 +759,18 @@ Then compare your outputs to `examples/petstore/` to see what the tool does.
 1. **GitHub API** (~300 endpoints)
 
    ```bash
-   selqor-forge generate https://raw.githubusercontent.com/github/rest-api-description/main/openapi.json --out ./github-output
+   selqor-mcp-forge generate https://raw.githubusercontent.com/github/rest-api-description/main/openapi.json --out ./github-output
    ```
 
 2. **Stripe API** (~600 endpoints)
 
    ```bash
-   selqor-forge generate https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json --out ./stripe-output
+   selqor-mcp-forge generate https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json --out ./stripe-output
    ```
 
 3. **Your Own API** (local file)
    ```bash
-   selqor-forge generate ./my-api-spec.yaml --out ./my-api-output
+   selqor-mcp-forge generate ./my-api-spec.yaml --out ./my-api-output
    ```
 
 ---
@@ -770,22 +816,22 @@ Scan MCP servers and dependencies for security vulnerabilities:
 
 ```bash
 # Quick scan (heuristic + CVE checking)
-selqor-forge scan ./my-mcp-server --out ./scan-results --format json
+selqor-mcp-forge scan ./my-mcp-server --out ./scan-results --format json
 
 # Scan from GitHub repository
-selqor-forge scan https://github.com/user/repo --out ./scan-results --format json
+selqor-mcp-forge scan https://github.com/user/repo --out ./scan-results --format json
 
 # Scan running server
-selqor-forge scan http://localhost:3000 --out ./scan-results --format json
+selqor-mcp-forge scan http://localhost:3000 --out ./scan-results --format json
 
 # Full scan with LLM OWASP analysis + Trivy + heuristics
-selqor-forge scan ./server --full --format json,pdf
+selqor-mcp-forge scan ./server --full --format json,pdf
 
 # Add Semgrep pattern matching rules
-selqor-forge scan ./server --full --semgrep --format json
+selqor-mcp-forge scan ./server --full --semgrep --format json
 
 # Skip LLM analysis (cost savings, faster)
-selqor-forge scan ./server --full --no-llm --format json
+selqor-mcp-forge scan ./server --full --no-llm --format json
 ```
 
 **Output Formats:** `json`, `markdown`, `spdx`, `pdf`
@@ -869,9 +915,9 @@ curl http://localhost:8787/api/cicd/badge/my-project  # Get compliance badge
 
 ## Getting Help
 
-- **Bug Reports:** [GitHub Issues](https://github.com/Selqor-Labs/selqor-forge/issues)
+- **Bug Reports:** [GitHub Issues](https://github.com/Selqor-Labs/Selqor-MCP-Forge/issues)
 - **Security Issues:** See [SECURITY.md](SECURITY.md)
-- **Questions:** [GitHub Discussions](https://github.com/Selqor-Labs/selqor-forge/discussions)
+- **Questions:** [GitHub Discussions](https://github.com/Selqor-Labs/Selqor-MCP-Forge/discussions)
 - **Support:** See [SUPPORT.md](SUPPORT.md)
 
 ## License

@@ -135,7 +135,7 @@ def merge_parsed_specs(specs: list[ParsedSpec], combined_title: str | None = Non
 
 def _is_blocked_host(url: str) -> bool:
     """Block requests to internal/private IP ranges to prevent SSRF."""
-    from ipaddress import ip_address as parse_ip, AddressValueError
+    from ipaddress import IPv4Address, ip_address as parse_ip
     import socket
 
     parsed = urlparse(url)
@@ -143,16 +143,33 @@ def _is_blocked_host(url: str) -> bool:
     if not hostname:
         return True
 
-    # Resolve hostname to IP and check for private/reserved ranges
     try:
         resolved = socket.getaddrinfo(hostname, None)
-        for _, _, _, _, sockaddr in resolved:
-            addr = parse_ip(sockaddr[0])
-            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
-                return True
-    except (socket.gaierror, AddressValueError):
-        # If we can't resolve, let httpx handle the error
-        pass
+    except socket.gaierror:
+        # Unresolvable: let httpx surface the real network error.
+        return False
+
+    for _, _, _, _, sockaddr in resolved:
+        raw = sockaddr[0]
+        # Strip IPv6 zone identifiers (e.g. "fe80::1%eth0") before parsing.
+        raw = raw.split("%", 1)[0]
+        try:
+            addr = parse_ip(raw)
+        except ValueError:
+            continue
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_unspecified
+            or addr.is_multicast
+        ):
+            return True
+        # `is_reserved` is only meaningful for IPv4 here; in IPv6 it covers
+        # broad public ranges such as NAT64 (64:ff9b::/96, RFC 6052) which
+        # legitimately route to public IPv4 services.
+        if isinstance(addr, IPv4Address) and addr.is_reserved:
+            return True
 
     return False
 
