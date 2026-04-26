@@ -1,7 +1,7 @@
 # Selqor MCP Forge
 
 <p align="center">
-  <img src="selqorLogos/selqor-labs-dark.svg" alt="Selqor MCP Forge" width="320">
+  <img src="https://raw.githubusercontent.com/Selqor-Labs/Selqor-MCP-Forge/main/selqorLogos/selqor-labs-light.svg" alt="Selqor MCP Forge" width="320">
 </p>
 
 <p align="center">
