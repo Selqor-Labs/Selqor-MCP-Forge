@@ -35,12 +35,6 @@ Selqor MCP Forge turns your application's API specs into smaller, higher-signal 
 - Generate hardened MCP servers in TypeScript or Rust.
 - Review everything through a local dashboard before shipping.
 
-## Release Confidence
-
-- Full test suite currently passes: `217 passed`
-- Real-world validation was rerun against both the OpenAI and Stripe public specs
-- Fresh generated TypeScript servers rebuilt, booted over `stdio`, and rescanned at `0 findings / 100.0`
-
 ## Why It Feels Different
 
 | Raw API -> MCP | Selqor MCP Forge |
@@ -90,7 +84,7 @@ pip install -e .[dev]
 
 ## Public v1 Support Matrix
 
-- Supported: GitHub source checkout, Docker demo stack, local single-user dashboard, TypeScript targets, Rust `stdio`, CLI generation, CLI scanning, PyPI distribution, npm wrapper
+- Supported: GitHub source checkout, Docker demo stack, local single-user dashboard with **multiple integrations**, TypeScript targets, Rust `stdio`, CLI generation, CLI scanning, PyPI distribution, npm wrapper
 - Experimental: Rust HTTP transport
 - Not in public v1: shared dashboard auth, organizations, team management
 
@@ -202,12 +196,12 @@ That gets you to a real working local dashboard with integrations, LLM config, s
 
 ## Common Workflows
 
-### 1. Analyze Your First API Spec
+### 1. Analyze an API Spec
 
 1. Go to **Integrations** tab in the dashboard
 2. Click **"Create Integration"**
 3. Enter:
-   - **Name:** "My First API" (any name you want)
+   - **Name:** "My API" (any name you want)
    - **Spec URL:** Paste an OpenAPI spec URL (examples below)
 4. Click **"Analyze"**
 5. Wait for analysis to complete (~30 seconds for small specs, ~2 minutes for 100+ endpoints)
@@ -262,6 +256,8 @@ Once you have a curated tool plan:
    - **Tool Plan:** Final curated list
    - **Report:** Quality metrics (JSON, CSV, or PDF)
 
+**Tip:** You can add and manage **multiple integrations** simultaneously. Repeat steps 1-3 to analyze different APIs, configure separate auth profiles for each, and generate independent MCP servers.
+
 ---
 
 ## Capabilities
@@ -286,7 +282,7 @@ Once you have a curated tool plan:
 
 ### Core Features
 
-- ✅ **Integration Management** — Add, analyze, and manage OpenAPI specs
+- ✅ **Integration Management** — Add, analyze, and manage multiple OpenAPI specs with separate tool plans and MCP servers
 - ✅ **Tool Curation** — LLM-powered tool plan creation with manual override
 - ✅ **Auth Profiles** — Store and test API credentials securely
 - ✅ **LLM Configuration** — Connect to OpenAI, Anthropic, or other LLM providers

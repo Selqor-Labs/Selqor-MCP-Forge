@@ -6,7 +6,7 @@ This matrix is the public-v1 truth table for Selqor MCP Forge.
 | --- | --- | --- |
 | CLI generation flow | Supported | Env-driven LLM config works for Anthropic and OpenAI-compatible providers; heuristic fallback remains available |
 | CLI scanning flow | Supported | Env-driven LLM config works in CLI and CI; `ANTHROPIC_API_KEY` remains the simplest default contract |
-| Dashboard integrations flow | Supported | Local single-user workflow |
+| Dashboard integrations flow | Supported | Local single-user workflow with support for multiple integrations (OpenAPI specs, auth profiles, and generated MCP servers) |
 | Dashboard auth/org/team flows | Not in public v1 | Disabled with explicit `501 LOCAL_ONLY_BUILD` responses |
 | Generated TypeScript targets | Supported | `stdio` and HTTP/SSE generation paths remain available |
 | Generated Rust `stdio` target | Supported | Public-v1 supported Rust target |
