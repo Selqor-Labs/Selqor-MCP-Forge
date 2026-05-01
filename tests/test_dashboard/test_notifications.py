@@ -28,7 +28,7 @@ def test_create_slack_channel(client):
     resp = client.post("/api/notifications/channels", json={
         "name": "Slack Alerts",
         "channel_type": "slack",
-        "config": {"webhook_url": "https://hooks.slack.com/services/T/B/X"},
+        "config": {"webhook_url": "https://hooks.slack.com/services/example"},
     })
     assert resp.status_code == 200
     assert resp.json()["channel_type"] == "slack"

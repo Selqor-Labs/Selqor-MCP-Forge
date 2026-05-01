@@ -1,5 +1,5 @@
 import React from 'react';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -31,6 +31,7 @@ import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import ExtensionOutlinedIcon from '@mui/icons-material/ExtensionOutlined';
 import Divider from '@mui/material/Divider';
 import HistoryIcon from '@mui/icons-material/History';
+import Checkbox from '@mui/material/Checkbox';
 import useStore from '../../store/useStore';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import LogoLoader from '../../components/LogoLoader';
@@ -136,6 +137,8 @@ export default function IntegrationGrid({ loading = false }) {
   // Per-spec fetch validation results: array of { valid, error, suggestions, warning }
   const [specFetchResults, setSpecFetchResults] = useState([]);
   const [duplicateUrlConfirm, setDuplicateUrlConfirm] = useState(null);
+  const [selected, setSelected] = useState(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const filtered = integrations.filter((i) => {
     const q = search.toLowerCase();
@@ -287,61 +290,150 @@ export default function IntegrationGrid({ loading = false }) {
     }
   }
 
+  const handleToggleSelect = useCallback((id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  function handleSelectAll() {
+    if (selected.size === filtered.length && filtered.length > 0) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map((i) => i.id)));
+    }
+  }
+
+  async function handleBulkDelete() {
+    const selectedIds = Array.from(selected);
+    setBulkDeleting(true);
+    setDeleteTarget(null);
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const id of selectedIds) {
+      try {
+        await deleteIntegration(id);
+        successCount++;
+      } catch (err) {
+        failureCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast(`Deleted ${successCount} integration${successCount > 1 ? 's' : ''}`);
+      window.dispatchEvent(new CustomEvent('integrations:reload'));
+    }
+    if (failureCount > 0) {
+      toast(`Failed to delete ${failureCount} integration${failureCount > 1 ? 's' : ''}`, 'error');
+    }
+
+    setSelected(new Set());
+    setBulkDeleting(false);
+  }
+
   const isBusy = creating || validatingSpecs;
 
   return (
     <Box>
-      {/* Toolbar */}
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, alignItems: 'center' }}>
-        <TextField placeholder="Search integrations..." value={search} onChange={(e) => setSearch(e.target.value)} sx={{ flex: 1 }} />
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
-          New Integration
-        </Button>
-      </Box>
+      {/* Sticky header: toolbar + resume banner.
+          The parent Layout scroll container has p: { xs: 1.5, sm: 2.5, md: 3 }.
+          Negative top values pin the sticky above the parent's padding so cards
+          don't scroll through the visible gap between Topbar and the search bar. */}
+      <Box
+        sx={{
+          position: 'sticky',
+          top: { xs: -12, sm: -20, md: -24 },
+          zIndex: 10,
+          bgcolor: 'background.default',
+          mx: { xs: -1.5, sm: -2.5, md: -3 },
+          mt: { xs: -1.5, sm: -2.5, md: -3 },
+          px: { xs: 1.5, sm: 2.5, md: 3 },
+          pt: { xs: 1.5, sm: 2.5, md: 3 },
+          pb: 2,
+          mb: 1.5,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          boxShadow: (t) => t.palette.mode === 'dark'
+            ? '0 4px 12px rgba(0, 0, 0, 0.4)'
+            : '0 4px 12px rgba(0, 0, 0, 0.06)',
+        }}
+      >
+        {/* Toolbar */}
+        <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5, alignItems: 'center' }}>
+          <TextField placeholder="Search integrations..." value={search} onChange={(e) => setSearch(e.target.value)} sx={{ flex: 1 }} />
+          {selected.size > 0 && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                {selected.size} selected
+              </Typography>
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={() => setDeleteTarget({ isBulk: true })}
+                disabled={bulkDeleting}
+                sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+              >
+                Delete
+              </Button>
+            </>
+          )}
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+            New Integration
+          </Button>
+        </Box>
 
-      {/* Resume last integration banner */}
-      {!loading && (() => {
-        const lastId = loadString(STORAGE_KEYS.lastIntegrationId);
-        if (!lastId) return null;
-        const lastInteg = integrations.find((i) => i.id === lastId);
-        if (!lastInteg) return null;
-        return (
-          <Paper
-            variant="outlined"
-            sx={{
-              mb: 2,
-              px: 2.5,
-              py: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 2,
-              borderStyle: 'dashed',
-            }}
-          >
-            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
-              <HistoryIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-              <Box sx={{ minWidth: 0 }}>
-                <Typography variant="body2" fontWeight={600} noWrap>
-                  Resume: {lastInteg.name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap>
-                  Pick up where you left off
-                </Typography>
-              </Box>
-            </Stack>
-            <Button
+        {/* Resume last integration banner */}
+        {!loading && (() => {
+          const lastId = loadString(STORAGE_KEYS.lastIntegrationId);
+          if (!lastId) return null;
+          const lastInteg = integrations.find((i) => i.id === lastId);
+          if (!lastInteg) return null;
+          return (
+            <Paper
               variant="outlined"
-              size="small"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => navigate(`/integrations/${lastInteg.id}`)}
-              sx={{ flexShrink: 0 }}
+              sx={{
+                px: 2.5,
+                py: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 2,
+                borderStyle: 'dashed',
+              }}
             >
-              Continue
-            </Button>
-          </Paper>
-        );
-      })()}
+              <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
+                <HistoryIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" fontWeight={600} noWrap>
+                    Resume: {lastInteg.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap>
+                    Pick up where you left off
+                  </Typography>
+                </Box>
+              </Stack>
+              <Button
+                variant="outlined"
+                size="small"
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate(`/integrations/${lastInteg.id}`)}
+                sx={{ flexShrink: 0 }}
+              >
+                Continue
+              </Button>
+            </Paper>
+          );
+        })()}
+      </Box>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '45vh' }}>
@@ -400,25 +492,44 @@ export default function IntegrationGrid({ loading = false }) {
           )}
         </Paper>
       ) : (
-        <Grid container spacing={1.5}>
-          {filtered.map((integ) => {
-            const conn = integ.last_connection_test;
-            const latency = conn?.latency_ms;
-            const latencyLabel = latency != null ? (latency >= 1000 ? `${(latency / 1000).toFixed(1)}s` : `${latency}ms`) : null;
-            const cardTags = integ.tags || [];
-            const primaryTag = cardTags[0];
-            const remainingTagCount = Math.max(0, cardTags.length - 1);
-            return (
-              <Grid item xs={12} sm={6} lg={4} key={integ.id}>
-                <Card
-                  sx={{
-                    height: '100%',
-                    '&:hover': { boxShadow: 3 },
-                    transition: 'box-shadow 150ms',
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}
-                >
+        <>
+          {filtered.length > 0 && (
+            <Box sx={{ mb: 1.5 }}>
+              <Checkbox
+                checked={selected.size === filtered.length && filtered.length > 0}
+                indeterminate={selected.size > 0 && selected.size < filtered.length}
+                onChange={handleSelectAll}
+                size="small"
+                disableRipple
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                Select all on this page
+              </Typography>
+            </Box>
+          )}
+          <Grid container spacing={1.5}>
+            {filtered.map((integ) => {
+              const conn = integ.last_connection_test;
+              const latency = conn?.latency_ms;
+              const latencyLabel = latency != null ? (latency >= 1000 ? `${(latency / 1000).toFixed(1)}s` : `${latency}ms`) : null;
+              const cardTags = integ.tags || [];
+              const primaryTag = cardTags[0];
+              const remainingTagCount = Math.max(0, cardTags.length - 1);
+              const isSelected = selected.has(integ.id);
+              return (
+                <Grid item xs={12} sm={6} lg={4} key={integ.id}>
+                  <Card
+                    sx={{
+                      height: '100%',
+                      '&:hover': { boxShadow: 3 },
+                      transition: 'box-shadow 150ms',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      bgcolor: isSelected ? (t) => t.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.08)' : 'rgba(25, 118, 210, 0.04)' : undefined,
+                      border: isSelected ? '2px solid' : undefined,
+                      borderColor: isSelected ? 'primary.main' : undefined,
+                    }}
+                  >
                   {testing === integ.id && <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3 }} />}
                   {(primaryTag || remainingTagCount > 0) && (
                     <Box
@@ -437,7 +548,16 @@ export default function IntegrationGrid({ loading = false }) {
                   )}
                   <CardContent sx={{ display: 'flex', flexDirection: 'column', minHeight: 174, pt: 2, pb: 1, '&:last-child': { pb: 1.25 } }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5, mb: 0.5, minHeight: 30 }}>
-                      <Typography variant="body1" fontWeight={600} noWrap sx={{ flex: 1, minWidth: 0 }}>{integ.name}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={() => handleToggleSelect(integ.id)}
+                          size="small"
+                          disableRipple
+                          sx={{ p: 0.5, ml: -0.5 }}
+                        />
+                        <Typography variant="body1" fontWeight={600} noWrap sx={{ flex: 1, minWidth: 0 }}>{integ.name}</Typography>
+                      </Box>
                       {conn && (
                         <Chip
                           size="small"
@@ -492,9 +612,10 @@ export default function IntegrationGrid({ loading = false }) {
                   </CardContent>
                 </Card>
               </Grid>
-            );
-          })}
-        </Grid>
+              );
+            })}
+          </Grid>
+        </>
       )}
 
       {/* ── Create Dialog ── */}
@@ -632,12 +753,16 @@ export default function IntegrationGrid({ loading = false }) {
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="Delete Integration"
-        message={`Delete "${deleteTarget?.name}"? This will remove all runs, artifacts, and configurations.`}
+        onConfirm={deleteTarget?.isBulk ? handleBulkDelete : handleDelete}
+        title={deleteTarget?.isBulk ? "Delete Integrations" : "Delete Integration"}
+        message={
+          deleteTarget?.isBulk
+            ? `Delete ${selected.size} integration${selected.size > 1 ? 's' : ''}? This will remove all runs, artifacts, and configurations.`
+            : `Delete "${deleteTarget?.name}"? This will remove all runs, artifacts, and configurations.`
+        }
         confirmLabel="Delete"
         confirmClass="btn-danger"
-        loading={!!deleteTarget && deletingId === deleteTarget.id}
+        loading={deleteTarget?.isBulk ? bulkDeleting : (!!deleteTarget && deletingId === deleteTarget.id)}
       />
 
       {/* Duplicate URL Confirmation */}
